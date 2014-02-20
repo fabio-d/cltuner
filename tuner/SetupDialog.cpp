@@ -1,6 +1,7 @@
 #include "SetupDialog.h"
 
 #include "clhelpers/cl.h"
+#include "dft-interface/DftAlgorithmManager.h"
 
 #include <QLabel>
 #include <QSpacerItem>
@@ -61,17 +62,29 @@ SetupDialog::~SetupDialog()
 void SetupDialog::slotPlatformChanged()
 {
 	m_computeDevice->clear();
+	m_dftAlgorithm->clear();
 
 	if (m_computePlatform->currentIndex() == -1)
 		return;
 
-	const int cl_platform_index = m_computePlatform->itemData(m_computePlatform->currentIndex()).toInt();
-	if (cl_platform_index == -1) // Native selezionato, non mostriamo alcun device
-		return;
+	QList< QPair<QString, DftAlgorithm*> > algorithms;
 
-	cl_platform_id plat = clhSelectPlatform(cl_platform_index);
-	foreach (const QString &s, clhAvailableDeviceNames(plat))
-		m_computeDevice->addItem(s);
+	const int cl_platform_index = m_computePlatform->itemData(m_computePlatform->currentIndex()).toInt();
+	if (cl_platform_index == -1)
+	{
+		// Esecuzione seriale su CPU
+		algorithms = DftAlgorithmManager::getSingleInstance()->algorithms();
+	}
+	else
+	{
+		// OpenCL
+		cl_platform_id plat = clhSelectPlatform(cl_platform_index);
+		foreach (const QString &s, clhAvailableDeviceNames(plat))
+			m_computeDevice->addItem(s);
+	}
+
+	for (int i = 0; i < algorithms.count(); i++)
+		m_dftAlgorithm->addItem(algorithms[i].first, QVariant::fromValue<void*>(static_cast<void*>(algorithms[i].second)));
 }
 
 void SetupDialog::slotAudioDeviceChanged()
