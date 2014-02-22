@@ -5,7 +5,7 @@
 
 static string get_device_info_string(cl_device_id device, cl_device_info param)
 {
-	cl_uint numchars;
+	size_t numchars;
 	CL_CHECK_ERR("clGetDeviceInfo", clGetDeviceInfo(device, param, 0, NULL, &numchars));
 
 	char *buffer = new char[numchars];

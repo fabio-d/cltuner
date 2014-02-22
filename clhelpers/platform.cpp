@@ -5,7 +5,7 @@
 
 static string get_plaform_info_string(cl_platform_id platform, cl_platform_info param)
 {
-	cl_uint numchars;
+	size_t numchars;
 	CL_CHECK_ERR("clGetPlatformInfo", clGetPlatformInfo(platform, param, 0, NULL, &numchars));
 
 	char *buffer = new char[numchars];
