@@ -113,7 +113,7 @@ int main(int argc, const char **argv)
 				}
 				else
 				{
-					for (unsigned j = 0; j < platforms.size(); j++)
+					for (unsigned j = 0; j < devices.size(); j++)
 						cerr << "  -> " << i << " " << j << " - " << devices[j] << endl;
 				}
 			}
