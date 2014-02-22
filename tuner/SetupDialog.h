@@ -18,6 +18,7 @@ class SetupDialog : public QDialog
 	private slots:
 		void slotPlatformChanged();
 		void slotAudioDeviceChanged();
+		void slotAccepted();
 
 	private:
 		QGridLayout *m_layout;
@@ -29,6 +30,7 @@ class SetupDialog : public QDialog
 
 		QComboBox *m_audioDevice;
 		QComboBox *m_audioSampleRate;
+		QComboBox *m_window;
 
 		QList<QAudioDeviceInfo> m_availableAudioInputDevices;
 };

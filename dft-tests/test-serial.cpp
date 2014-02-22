@@ -58,12 +58,12 @@ int main(int argc, const char **argv)
 #endif
 
 		cerr << "Uso: " << argv[0] << " <real | complex> input-size [print" << check_text << "]" << endl << endl;
-		cerr << " real        Usa input di tipo reale" << endl;
-		cerr << " complex     Usa input di tipo complesso" << endl;
-		cerr << " input-size  Numero di samples da passare in input" << pot_text << endl;
-		cerr << " print       Mostra output" << endl;
+		cerr << " real             Usa input di tipo reale" << endl;
+		cerr << " complex          Usa input di tipo complesso" << endl;
+		cerr << " input-size       Numero di samples da passare in input" << pot_text << endl;
+		cerr << " print            Mostra output" << endl;
 #ifdef ENABLE_CHECK
-		cerr << " check       Confronta output con serial naive DFT" << endl;
+		cerr << " check            Confronta output con serial naive DFT" << endl;
 #endif
 
 		cerr << endl;

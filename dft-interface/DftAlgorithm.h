@@ -1,14 +1,23 @@
 #ifndef DFTINTERFACE_DFTALGORITHM_H
 #define DFTINTERFACE_DFTALGORITHM_H
 
-#include <vector>
+#include <QObject>
+#include <QVector>
 
-class DftAlgorithm
+class DftAlgorithm : public QObject
 {
+	Q_OBJECT
+
 	public:
 		virtual ~DftAlgorithm();
 
-		virtual std::vector<float> analyzeSpectrum(std::vector<float> &audioSamples) const = 0;
+		virtual void analyzeSpectrum(const QVector<float> &audioSamples) = 0;
+
+	protected:
+		DftAlgorithm();
+
+	signals:
+		void spectrumAnalyzed(QVector<float> result);
 };
 
 #endif // DFTINTERFACE_DFTALGORITHM_H

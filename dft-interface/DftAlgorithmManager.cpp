@@ -12,12 +12,22 @@ DftAlgorithmManager * DftAlgorithmManager::getSingleInstance()
 	return instance;
 }
 
-const QList< QPair<QString, DftAlgorithm*> >& DftAlgorithmManager::algorithms() const
+const QList< QPair<QString, SerialAlgorithmFactoryFunction> >& DftAlgorithmManager::serialAlgorithms() const
 {
-	return m_algorithms;
+	return m_serialAlgorithms;
 }
 
-void DftAlgorithmManager::registerImplementation(const char *algoName)
+const QList< QPair<QString, CLAlgorithmFactoryFunction> >& DftAlgorithmManager::clAlgorithms() const
 {
-	m_algorithms << QPair<QString, DftAlgorithm*>(algoName, NULL);
+	return m_clAlgorithms;
+}
+
+void DftAlgorithmManager::registerSerialImplementation(const char *algoName, SerialAlgorithmFactoryFunction factory)
+{
+	m_serialAlgorithms << QPair<QString, SerialAlgorithmFactoryFunction>(algoName, factory);
+}
+
+void DftAlgorithmManager::registerCLImplementation(const char *algoName, CLAlgorithmFactoryFunction factory)
+{
+	m_clAlgorithms << QPair<QString, CLAlgorithmFactoryFunction>(algoName, factory);
 }

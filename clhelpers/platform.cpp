@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-static QString get_plaform_info_string(cl_platform_id platform, cl_platform_info param)
+static string get_plaform_info_string(cl_platform_id platform, cl_platform_info param)
 {
 	cl_uint numchars;
 	CL_CHECK_ERR("clGetPlatformInfo", clGetPlatformInfo(platform, param, 0, NULL, &numchars));
@@ -11,14 +11,22 @@ static QString get_plaform_info_string(cl_platform_id platform, cl_platform_info
 	char *buffer = new char[numchars];
 	CL_CHECK_ERR("clGetPlatformInfo", clGetPlatformInfo(platform, param, numchars, buffer, NULL));
 
-	const QString result(buffer);
+	const string result(buffer);
 
 	delete[] buffer;
 
 	return result;
 }
 
-QList<QString> clhAvailablePlatformNames()
+string clhGetPlatformFriendlyName(cl_platform_id platform)
+{
+	const string platName = get_plaform_info_string(platform, CL_PLATFORM_NAME);
+	const string platVersion = get_plaform_info_string(platform, CL_PLATFORM_VERSION);
+
+	return platName + " - " + platVersion;
+}
+
+vector<string> clhAvailablePlatformNames()
 {
 	cl_uint numplatforms;
 	CL_CHECK_ERR("clGetPlatformIDs", clGetPlatformIDs(0, NULL, &numplatforms));
@@ -26,13 +34,9 @@ QList<QString> clhAvailablePlatformNames()
 	cl_platform_id *platforms = new cl_platform_id[numplatforms];
 	CL_CHECK_ERR("clGetPlatformIDs", clGetPlatformIDs(numplatforms, platforms, NULL));
 
-	QList<QString> result;
+	vector<string> result;
 	for (cl_uint i = 0; i < numplatforms; i++)
-	{
-		const QString platName = get_plaform_info_string(platforms[i], CL_PLATFORM_NAME);
-		const QString platVersion = get_plaform_info_string(platforms[i], CL_PLATFORM_VERSION);
-		result << QString("%0 - %1").arg(platName, platVersion);
-	}
+		result.push_back(clhGetPlatformFriendlyName(platforms[i]));
 
 	delete[] platforms;
 
@@ -47,9 +51,9 @@ cl_platform_id clhSelectPlatform(int index)
 	cl_platform_id *platforms = new cl_platform_id[numplatforms];
 	CL_CHECK_ERR("clGetPlatformIDs", clGetPlatformIDs(numplatforms, platforms, NULL));
 
-	if (index < 0 || index > numplatforms)
+	if (index < 0 || index >= numplatforms)
 	{
-		fprintf(stderr, "clhSelectPlatform: Indice non valido\n");
+		fprintf(stderr, "clhSelectPlatform: Indice %d non valido\n", index);
 		exit(EXIT_FAILURE);
 	}
 

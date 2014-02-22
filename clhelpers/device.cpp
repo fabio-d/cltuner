@@ -1,9 +1,9 @@
 #include "cl.h"
 
-#include <QRegExp>
-#include <QStringList>
+#include <cstdio>
+#include <cstdlib>
 
-static QString get_device_info_string(cl_device_id device, cl_device_info param)
+static string get_device_info_string(cl_device_id device, cl_device_info param)
 {
 	cl_uint numchars;
 	CL_CHECK_ERR("clGetDeviceInfo", clGetDeviceInfo(device, param, 0, NULL, &numchars));
@@ -11,33 +11,46 @@ static QString get_device_info_string(cl_device_id device, cl_device_info param)
 	char *buffer = new char[numchars];
 	CL_CHECK_ERR("clGetDeviceInfo", clGetDeviceInfo(device, param, numchars, buffer, NULL));
 
-	const QString result(buffer);
+	string result(buffer);
 
 	delete[] buffer;
 
 	return result;
 }
 
-static QString get_device_types(cl_device_id device)
+static string get_device_types(cl_device_id device)
 {
 	cl_device_type dt;
 	CL_CHECK_ERR("clGetDeviceInfo", clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(dt), &dt, NULL));
 
-	QStringList result;
+	string result;
+	string sep;
 
 	if (dt & CL_DEVICE_TYPE_CPU)
-		result << "CPU";
+		result += sep + "CPU", sep = ", ";
 	if (dt & CL_DEVICE_TYPE_GPU)
-		result << "GPU";
+		result += sep + "GPU", sep = ", ";
 	if (dt & CL_DEVICE_TYPE_ACCELERATOR)
-		result << "ACCELERATOR";
+		result += sep + "ACCELERATOR", sep = ", ";
 	if (dt & CL_DEVICE_TYPE_DEFAULT)
-		result << "DEFAULT";
+		result += sep + "DEFAULT", sep = ", ";
 
-	return result.join(", ");
+	return result;
 }
 
-QList<QString> clhAvailableDeviceNames(cl_platform_id platform)
+string clhGetDeviceFriendlyName(cl_device_id device)
+{
+	string devName = get_device_info_string(device, CL_DEVICE_NAME);
+
+	// Elimina doppi spazi (la mia CPU ne ha troppi!)
+	int dblspcpos;
+	while ((dblspcpos = devName.find("  ")) != string::npos)
+		devName.erase(dblspcpos, 1);
+
+	return devName + " [" + get_device_types(device) + "]";
+}
+
+vector<string> clhAvailableDeviceNames(cl_platform_id platform)
 {
 	cl_uint numdevices;
 	CL_CHECK_ERR("clGetDeviceIDs", clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &numdevices));
@@ -45,15 +58,30 @@ QList<QString> clhAvailableDeviceNames(cl_platform_id platform)
 	cl_device_id *devices = new cl_device_id[numdevices];
 	CL_CHECK_ERR("clGetDeviceIDs", clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, numdevices, devices, NULL));
 
-	QList<QString> result;
+	vector<string> result;
 	for (cl_uint i = 0; i < numdevices; i++)
-	{
-		QString devName = get_device_info_string(devices[i], CL_DEVICE_NAME);
-		devName.replace(QRegExp("  +"), " "); // Elimina doppi spazi (la mia CPU ne ha troppi!)
+		result.push_back(clhGetDeviceFriendlyName(devices[i]));
 
-		const QString devTypes = get_device_types(devices[i]);
-		result << QString("%0 [%1]").arg(devName, devTypes);
+	delete[] devices;
+
+	return result;
+}
+
+cl_device_id clhSelectDevice(cl_platform_id platform, int index)
+{
+	cl_uint numdevices;
+	CL_CHECK_ERR("clGetDeviceIDs", clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &numdevices));
+
+	cl_device_id *devices = new cl_device_id[numdevices];
+	CL_CHECK_ERR("clGetDeviceIDs", clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, numdevices, devices, NULL));
+
+	if (index < 0 || index >= numdevices)
+	{
+		fprintf(stderr, "clhSelectDevice: Indice %d non valido\n", index);
+		exit(EXIT_FAILURE);
 	}
+
+	cl_device_id result = devices[index];
 
 	delete[] devices;
 
