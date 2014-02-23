@@ -24,14 +24,16 @@ vector<cpx> serial_naive_dft(const vector<T> &data)
 
 	const clock_t start = clock();
 
+	const float parteFissa = M_PI_F/N*-2.f;
 	for (int k = 0; k < N; k++)
 	{
+		const float parteDipendenteDaK = parteFissa*k;
 		cpx sum(0, 0);
 
 		for (int j = 0; j < N; j++)
 		{
 			float s, c;
-			sincosf(M_PI_F/N*-2.f*j*k, &s, &c);
+			sincosf(parteDipendenteDaK*j, &s, &c);
 			sum += data[j] * cpx(c, s);
 		}
 
