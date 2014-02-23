@@ -1,6 +1,7 @@
 // Algoritmo FFT equivalente al Cooley-Tukey (radix-2 DIT)
 
 #include "cpx.h"
+#include "pi_float.h"
 #include "sizeconv.h"
 
 #include <cstdio>
@@ -25,7 +26,7 @@ void serial_nonrecursive_fft_step(const vector<T> &vec_in, vector<cpx> &vec_out,
 	{
 		const int src_y1 = 2*k;
 		const int src_y2 = 2*k+1;
-		const cpx twiddle_factor = exp(cpx(0, M_PI/H*(double)-2*k));
+		const cpx twiddle_factor = exp(cpx(0, M_PI_F/H*-2.f*k));
 
 		for (int src_x = 0; src_x < W; src_x++)
 		{

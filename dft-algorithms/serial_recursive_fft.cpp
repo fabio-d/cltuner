@@ -2,6 +2,7 @@
 // https://en.wikipedia.org/wiki/Cooley-Tukey_FFT_algorithm
 
 #include "cpx.h"
+#include "pi_float.h"
 #include "sizeconv.h"
 
 #include <cstdio>
@@ -43,7 +44,7 @@ static vector<cpx> serial_recursive_fft_internal(const vector<T> &data)
 		for (int k = 0; k < N/2; ++k)
 		{
 			const cpx p1 = even_ft[k];
-			const cpx p2 = odd_ft[k] * exp(cpx(0, M_PI/N*(double)-2*k));
+			const cpx p2 = odd_ft[k] * exp(cpx(0, M_PI_F/N*-2.f*k));
 
 			res[k] = p1 + p2;
 			res[k + N/2] = p1 - p2;
