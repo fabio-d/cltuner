@@ -29,7 +29,11 @@ vector<cpx> serial_naive_dft(const vector<T> &data)
 		cpx sum(0, 0);
 
 		for (int j = 0; j < N; j++)
-			sum += data[j] * cpx(cos(M_PI_F/N*-2.f*j*k), sin(M_PI_F/N*-2.f*j*k));
+		{
+			float s, c;
+			sincosf(M_PI_F/N*-2.f*j*k, &s, &c);
+			sum += data[j] * cpx(c, s);
+		}
 
 		result[k] = sum;
 	}
