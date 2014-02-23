@@ -2,6 +2,7 @@
 // https://en.wikipedia.org/wiki/Discrete_Fourier_transform
 
 #include "cpx.h"
+#include "sizeconv.h"
 
 #include <cstdio>
 #include <ctime>
@@ -34,8 +35,8 @@ vector<cpx> serial_naive_dft(const vector<T> &data)
 
 	const clock_t end = clock();
 	const float secs = (end - start) / float(CLOCKS_PER_SEC);
-	const float memSizeKiB = (N*N*sizeof(T) + N*sizeof(cpx)) / 1.024e3;
-	fprintf(stderr, "%s [N=%d]: %g ms, %g KiB/s, %g samples/s\n",
+	const float memSizeKiB = (N*N*sizeof(T) + N*sizeof(cpx)) / SIZECONV_MB;
+	fprintf(stderr, "%s [N=%d]: %g ms, %g MiB/s, %g samples/s\n",
 		serial_naive_dft_algoName<T>(),
 		N, secs * 1e3, memSizeKiB / secs, N / secs);
 

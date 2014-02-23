@@ -1,5 +1,6 @@
 #include "cl_base.h"
 #include "cpx.h"
+#include "sizeconv.h"
 
 #include <cstdio>
 
@@ -187,23 +188,23 @@ template <typename T>
 void cl_naive_dft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event kernel_evt, cl_event download_map_evt)
 {
 	const float upload_secs = clhEventWaitAndGetDuration(upload_unmap_evt);
-	const float upload_memSizeKiB = samplesMemSize / 1.024e3;
+	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
 
 	const float kernel_secs = clhEventWaitAndGetDuration(kernel_evt);
-	const float kernel_memSizeKiB = (samplesPerRun*samplesMemSize + resultMemSize) / 1.024e3;
+	const float kernel_memSizeMiB = (samplesPerRun*samplesMemSize + resultMemSize) / SIZECONV_MB;
 
 	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
-	const float download_memSizeKiB = resultMemSize / 1.024e3;
+	const float download_memSizeMiB = resultMemSize / SIZECONV_MB;
 
 	fprintf(stderr, "%s [N=%d]:\n",
 		cl_naive_dft_algoName<T>(), samplesPerRun);
 
-	fprintf(stderr, " upload %g ms, %g KiB/s\n",
-		upload_secs * 1e3, upload_memSizeKiB / upload_secs);
-	fprintf(stderr, " kernel %g ms, %g KiB/s, %g samples/s\n",
-		kernel_secs * 1e3, kernel_memSizeKiB / kernel_secs, samplesPerRun / kernel_secs);
-	fprintf(stderr, " download %g ms, %g KiB/s\n",
-		download_secs * 1e3, download_memSizeKiB / download_secs);
+	fprintf(stderr, " upload %g ms, %g MiB/s\n",
+		upload_secs * 1e3, upload_memSizeMiB / upload_secs);
+	fprintf(stderr, " kernel %g ms, %g MiB/s, %g samples/s\n",
+		kernel_secs * 1e3, kernel_memSizeMiB / kernel_secs, samplesPerRun / kernel_secs);
+	fprintf(stderr, " download %g ms, %g MiB/s\n",
+		download_secs * 1e3, download_memSizeMiB / download_secs);
 
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(upload_unmap_evt));
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(kernel_evt));

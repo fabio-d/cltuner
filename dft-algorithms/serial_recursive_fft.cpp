@@ -2,6 +2,7 @@
 // https://en.wikipedia.org/wiki/Cooley-Tukey_FFT_algorithm
 
 #include "cpx.h"
+#include "sizeconv.h"
 
 #include <cstdio>
 #include <ctime>
@@ -62,8 +63,8 @@ vector<cpx> serial_recursive_fft(const vector<T> &data)
 
 	const clock_t end = clock();
 	const float secs = (end - start) / float(CLOCKS_PER_SEC);
-	const float memSizeKiB = (N*sizeof(T) + 3*N*sizeof(cpx)) * log2(N) / 1.024e3;
-	fprintf(stderr, "%s [N=%d]: %g ms, %g KiB/s, %g samples/s\n",
+	const float memSizeKiB = (N*sizeof(T) + 3*N*sizeof(cpx)) * log2(N) / SIZECONV_MB;
+	fprintf(stderr, "%s [N=%d]: %g ms, %g MiB/s, %g samples/s\n",
 		serial_recursive_fft_algoName<T>(),
 		N, secs * 1e3, memSizeKiB / secs, N / secs);
 
