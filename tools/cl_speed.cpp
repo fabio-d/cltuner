@@ -7,8 +7,52 @@
 
 #include <unistd.h>
 
-#define MAX_MEGABYTES 256
-#define MAX_ITERAZIONI 16
+#define _STRINGIFY(arg)	#arg
+#define STRINGIFY(arg)	_STRINGIFY(arg)
+#define _CONCAT(a, b)	a ## b
+#define CONCAT(a, b)	_CONCAT(a, b)
+
+// Leggo e scrivo sempre su buffer di questa dimensione
+#define MEMSIZE_MB	1 // <-- modificabile!
+#define MEMSIZE_KB	(MEMSIZE_MB * 1024)
+#define MEMSIZE_BYTES	(MEMSIZE_KB * 1024)
+
+// Tipo di dato OpenCL utilizzato per gli accessi
+#define CL_DEVICE_DATATYPE	int2 // <-- modificabile!
+#define CL_DEVICE_DATATYPE_STR	STRINGIFY(CL_DEVICE_DATATYPE)
+#define CL_HOST_DATATYPE	CONCAT(cl_, CL_DEVICE_DATATYPE)
+
+static cl_uint num_iterazioni;
+
+static float runTest(cl_command_queue queue, cl_kernel kernel, cl_mem buffer, cl_mem dummyBuffer)
+{
+	size_t groupSize = 256;
+	size_t globalSize = MEMSIZE_BYTES / sizeof(CL_HOST_DATATYPE);
+
+	//printf("%d iterazioni * %d KiB/iterazione = %d KiB coinvolti\n", num_iterazioni, MEMSIZE_KB, num_iterazioni * MEMSIZE_KB);
+	//printf("lancio %d workgroups con %d workitems ciascuno = %d workitem totali\n\n", globalSize / groupSize, groupSize, globalSize);
+
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_int), &num_iterazioni));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &dummyBuffer));
+
+	cl_event kernel_evt;
+	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(queue,
+		kernel,
+		1,
+		NULL,
+		&globalSize,
+		&groupSize,
+		0,
+		NULL,
+		&kernel_evt
+	));
+
+	const float secs = clhEventWaitAndGetDuration(kernel_evt);
+	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(kernel_evt));
+
+	return secs;
+}
 
 static bool isdigit_string(const char *str)
 {
@@ -22,42 +66,24 @@ static bool isdigit_string(const char *str)
 
 int main(int argc, char **argv)
 {
-	int megabytes;
-	int num_iterazioni;
-
 	int platform_index = 0;
 	int device_index = 0;
 
 	// Parsing degli eventuali ultimi due argomenti numerici, da destra verso
 	// sinistra
-	if (argc >= 4 && isdigit_string(argv[argc - 1]))
+	if (argc >= 3 && isdigit_string(argv[argc - 1]))
 		platform_index = atoi(argv[--argc]);
-	if (argc >= 4 && isdigit_string(argv[argc - 1]))
+	if (argc >= 3 && isdigit_string(argv[argc - 1]))
 	{
 		device_index = platform_index;
 		platform_index = atoi(argv[--argc]);
 	}
 
-	if (argc != 3 || (megabytes = atoi(argv[1])) <= 0 || (num_iterazioni = atoi(argv[2])) <= 0)
+	if (argc != 2 || (num_iterazioni = atoi(argv[1])) <= 0)
 	{
-		fprintf(stderr, "Uso: %s <MiB> <num-iterazioni> [cl-platform-num [cl-device-num]]\n", argv[0]);
-		fprintf(stderr, "Specificare la quantita' di RAM video da utilizzare per i test,\n");
-		fprintf(stderr, "il numero di iterazioni da eseguire e gli indici della piattaforma\n");
-		fprintf(stderr, "e del dispositivo OpenCL da utilizzare\n");
-		return EXIT_FAILURE;
-	}
-
-	if (megabytes > MAX_MEGABYTES)
-	{
-		fprintf(stderr, "Troppi MiB richiesti!\n");
-		fprintf(stderr, "Per evitare di rendere instabile il sistema, questo programma\n");
-		fprintf(stderr, "impedisce di allocare piu' di %d MiB di RAM video\n", MAX_MEGABYTES);
-		return EXIT_FAILURE;
-	}
-
-	if (num_iterazioni > MAX_ITERAZIONI)
-	{
-		fprintf(stderr, "Troppe iterazioni richieste (max %d)!\n", MAX_ITERAZIONI);
+		fprintf(stderr, "Uso: %s <num-iterazioni> [cl-platform-num [cl-device-num]]\n", argv[0]);
+		fprintf(stderr, "Specificare il numero di iterazioni da %d MiB desiderate e gli\n", MEMSIZE_MB);
+		fprintf(stderr, "indici della piattaforma e del dispositivo OpenCL da utilizzare\n");
 		return EXIT_FAILURE;
 	}
 
@@ -72,49 +98,56 @@ int main(int argc, char **argv)
 
 	clhEmptyNvidiaCache();
 
-	cl_program program = clhBuildProgram(context, device, "tools/cl_speed.cl");
-	cl_kernel k_mem_copy = clhCreateKernel(program, "mem_copy");
+	cl_program program = clhBuildProgram(context, device, "tools/cl_speed.cl", "-DDATATYPE=" CL_DEVICE_DATATYPE_STR);
+	cl_kernel k_mem_read = clhCreateKernel(program, "mem_read");
+	cl_kernel k_mem_write = clhCreateKernel(program, "mem_write");
 
-	const int bytes_half = megabytes * 1024 * 1024 / 2;
+	int megabytes = num_iterazioni * MEMSIZE_MB;
 
 	cl_int err;
-	cl_mem v_buffer1 = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes_half, NULL, &err);
+	cl_mem v_bufferRO = clCreateBuffer(context, CL_MEM_READ_ONLY, MEMSIZE_BYTES, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
-	cl_mem v_buffer2 = clCreateBuffer(context, CL_MEM_WRITE_ONLY, bytes_half, NULL, &err);
+	cl_mem v_bufferWO = clCreateBuffer(context, CL_MEM_WRITE_ONLY, MEMSIZE_BYTES, NULL, &err);
+	CL_CHECK_ERR("clCreateBuffer", err);
+	cl_mem v_bufferRW = clCreateBuffer(context, CL_MEM_READ_WRITE, MEMSIZE_BYTES, NULL, &err);
+	CL_CHECK_ERR("clCreateBuffer", err);
+	cl_mem v_dummyBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(CL_HOST_DATATYPE), NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
 
-	size_t groupSize = 256;
-	size_t globalSize = bytes_half / sizeof(cl_int);
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mem_copy, 0, sizeof(cl_mem), &v_buffer2));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mem_copy, 1, sizeof(cl_mem), &v_buffer1));
+	float letturaCL_MEM_READ_ONLY = runTest(command_queue, k_mem_read, v_bufferRO, v_dummyBuffer);
+	float scritturaCL_MEM_WRITE_ONLY = runTest(command_queue, k_mem_write, v_bufferRO, v_dummyBuffer);
+	float letturaCL_MEM_READ_WRITE = runTest(command_queue, k_mem_read, v_bufferRW, v_dummyBuffer);
+	float scritturaCL_MEM_READ_WRITE = runTest(command_queue, k_mem_write, v_bufferRW, v_dummyBuffer);
 
-	float secs = 0;
-	for (int i = 0; i < num_iterazioni; i++)
-	{
-		cl_event kernel_evt;
-		CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-			k_mem_copy,
-			1,
-			NULL,
-			&globalSize,
-			&groupSize,
-			0,
-			NULL,
-			&kernel_evt
-		));
+	const float tempoDiUnaScrittura = scritturaCL_MEM_READ_WRITE / num_iterazioni;
+	letturaCL_MEM_READ_ONLY -= tempoDiUnaScrittura;
+	letturaCL_MEM_READ_WRITE -= tempoDiUnaScrittura;
 
-		secs += clhEventWaitAndGetDuration(kernel_evt);
-		clReleaseEvent(kernel_evt);
-	}
+	printf("Lettura da buffer CL_MEM_READ_ONLY\n");
+	printf(" tempo impiegato: %g ms\n", letturaCL_MEM_READ_ONLY * 1e3);
+	printf(" bandwidth: %g MiB/s\n\n", megabytes / letturaCL_MEM_READ_ONLY);
 
-	clFinish(command_queue);
+	printf("Scrittura su buffer CL_MEM_WRITE_ONLY\n");
+	printf(" tempo impiegato: %g ms\n", scritturaCL_MEM_WRITE_ONLY * 1e3);
+	printf(" bandwidth: %g MiB/s\n\n", megabytes / scritturaCL_MEM_WRITE_ONLY);
 
-	printf("Bandwidth: %g MiB/s\n", num_iterazioni * megabytes / secs);
+	printf("Lettura da buffer CL_MEM_READ_WRITE\n");
+	printf(" tempo impiegato: %g ms\n", letturaCL_MEM_READ_WRITE * 1e3);
+	printf(" bandwidth: %g MiB/s\n\n", megabytes / letturaCL_MEM_READ_WRITE);
 
-	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_buffer1));
-	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_buffer2));
+	printf("Scrittura su buffer CL_MEM_READ_WRITE\n");
+	printf(" tempo impiegato: %g ms\n", scritturaCL_MEM_READ_WRITE * 1e3);
+	printf(" bandwidth: %g MiB/s\n\n", megabytes / scritturaCL_MEM_READ_WRITE);
 
-	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mem_copy));
+	CL_CHECK_ERR("clFinish", clFinish(command_queue));
+
+	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_bufferRO));
+	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_bufferWO));
+	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_bufferRW));
+	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_dummyBuffer));
+
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mem_read));
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mem_write));
 	CL_CHECK_ERR("clReleaseProgram", clReleaseProgram(program));
 
 	CL_CHECK_ERR("clReleaseCommandQueue", clReleaseCommandQueue(command_queue));
