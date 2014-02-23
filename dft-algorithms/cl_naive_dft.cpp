@@ -1,5 +1,6 @@
 #include "cl_base.h"
 #include "cpx.h"
+#include "pi_float.h"
 #include "sizeconv.h"
 
 #include <cstdio>
@@ -84,10 +85,12 @@ vector<cpx> cl_naive_dft<cpx>::run(const vector<cpx> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
+	cl_float parteFissa = M_PI_F/samplesPerRun*-2.f;
 
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 0, sizeof(cl_mem), &v_samples));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 3, sizeof(cl_float), &parteFissa));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_dft_cpx2cpx,
 		1,
@@ -149,10 +152,12 @@ vector<cpx> cl_naive_dft<float>::run(const vector<float> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
+	cl_float parteFissa = M_PI_F/samplesPerRun*-2.f;
 
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 0, sizeof(cl_mem), &v_samples));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 3, sizeof(cl_float), &parteFissa));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_dft_real2cpx,
 		1,
