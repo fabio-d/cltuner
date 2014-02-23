@@ -23,6 +23,7 @@ class cl_naive_dft : public cl_base
 
 	private:
 		size_t samplesMemSize, resultMemSize;
+		size_t groupSize, globalSize;
 
 		cl_program program;
 		cl_kernel k_dft_cpx2cpx, k_dft_real2cpx;
@@ -38,6 +39,10 @@ cl_naive_dft<T>::cl_naive_dft(int platform_index, int device_index, int samplesP
 	program = clhBuildProgram(context, device, "dft-algorithms/cl_naive_dft.cl");
 	k_dft_cpx2cpx = clhCreateKernel(program, "dft_cpx2cpx");
 	k_dft_real2cpx = clhCreateKernel(program, "dft_real2cpx");
+
+	groupSize = atoi(getenv("GS_X") ?: "128");
+	globalSize = (samplesPerRun + groupSize - 1) / groupSize;
+	globalSize *= groupSize;
 
 	cl_int err;
 	samplesMemSize = cl_deviceDataSize<T>(samplesPerRun);
@@ -78,8 +83,7 @@ vector<cpx> cl_naive_dft<cpx>::run(const vector<cpx> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
-	size_t step_groupSize = 256;
-	size_t step_globalSize = (samplesPerRun + step_groupSize - 1) & ~(step_groupSize - 1);
+
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 0, sizeof(cl_mem), &v_samples));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
@@ -87,8 +91,8 @@ vector<cpx> cl_naive_dft<cpx>::run(const vector<cpx> &input)
 		k_dft_cpx2cpx,
 		1,
 		NULL,
-		&step_globalSize,
-		&step_groupSize,
+		&globalSize,
+		&groupSize,
 		1,
 		&upload_unmap_evt,
 		&kernel_evt
@@ -144,8 +148,7 @@ vector<cpx> cl_naive_dft<float>::run(const vector<float> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
-	size_t step_groupSize = 256;
-	size_t step_globalSize = (samplesPerRun + step_groupSize - 1) & ~(step_groupSize - 1);
+
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 0, sizeof(cl_mem), &v_samples));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_dft_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
@@ -153,8 +156,8 @@ vector<cpx> cl_naive_dft<float>::run(const vector<float> &input)
 		k_dft_real2cpx,
 		1,
 		NULL,
-		&step_globalSize,
-		&step_groupSize,
+		&globalSize,
+		&groupSize,
 		1,
 		&upload_unmap_evt,
 		&kernel_evt
@@ -196,8 +199,8 @@ void cl_naive_dft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_e
 	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
 	const float download_memSizeMiB = resultMemSize / SIZECONV_MB;
 
-	fprintf(stderr, "%s [N=%d]:\n",
-		cl_naive_dft_algoName<T>(), samplesPerRun);
+	fprintf(stderr, "%s [N=%d, GS=%d]:\n",
+		cl_naive_dft_algoName<T>(), samplesPerRun, groupSize);
 
 	fprintf(stderr, " upload %g ms, %g MiB/s\n",
 		upload_secs * 1e3, upload_memSizeMiB / upload_secs);
