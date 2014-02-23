@@ -18,6 +18,8 @@ class cl_base
 
 			context = clhCreateContextSingleDevice(platform, device);
 			command_queue = clhCreateCommandQueue(context, device, true /* profiling abilitato */);
+
+			clhEmptyNvidiaCache();
 		}
 
 		virtual ~cl_base()

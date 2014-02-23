@@ -15,6 +15,7 @@ add_library(clhelpers
 	clhelpers/device.cpp
 	clhelpers/event.cpp
 	clhelpers/kernel.cpp
+	clhelpers/nvidia_cache.cpp
 	clhelpers/platform.cpp
 	clhelpers/program.cpp
 )

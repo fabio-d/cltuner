@@ -29,6 +29,9 @@ extern float clhEventWaitAndGetDuration(cl_event evt);
 // kernel.cpp
 extern cl_kernel clhCreateKernel(cl_program program, const char *kernelName);
 
+// nvidia_cache.cpp
+extern void clhEmptyNvidiaCache();
+
 // platform.cpp
 extern string clhGetPlatformFriendlyName(cl_platform_id platform);
 extern vector<string> clhAvailablePlatformNames();
