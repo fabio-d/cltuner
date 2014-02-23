@@ -36,6 +36,9 @@ set(CMAKE_AUTOMOC OFF)
 
 add_executable(ram_speed tools/ram_speed.cpp)
 
+add_executable(cl_speed tools/cl_speed.cpp)
+target_link_libraries(cl_speed OpenCL clhelpers)
+
 add_executable(test-serial_naive_dft dft-tests/test-serial.cpp)
 set_target_properties(test-serial_naive_dft PROPERTIES COMPILE_FLAGS "-DALGOFUNC=serial_naive_dft -DALLOW_NPOT")
 
