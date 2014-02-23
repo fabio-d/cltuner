@@ -3,6 +3,7 @@
 #include "sizeconv.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 template <typename T> const char *cl_naive_dft_algoName();
 
@@ -208,6 +209,9 @@ void cl_naive_dft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_e
 		kernel_secs * 1e3, kernel_memSizeMiB / kernel_secs, samplesPerRun / kernel_secs);
 	fprintf(stderr, " download %g ms, %g MiB/s\n",
 		download_secs * 1e3, download_memSizeMiB / download_secs);
+
+	if (getenv("PRINT_KERNEL_EXECUTION_TIME"))
+		printf("%g\n", kernel_secs * 1e3);
 
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(upload_unmap_evt));
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(kernel_evt));
