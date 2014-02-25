@@ -7,8 +7,8 @@ DESCRIPTIONS = {
 	'gputime': "Execution time for the GPU kernel or memory copy (us, calculated as end - start)",
 	'cputime': "For blocking operations, gputime + CPU overhead; for non-blocking operations, CPU overhead only",
 	'ndrangesize': "Number of blocks in a grid along the X, Y and Z dimensions for a kernel launch",
-	'workgroupsize': "Number of threads in a block along the X, Y and Z dimensions for a kernel launch",
-	# controllare 'stasmemperblock': "Size of statically allocated shared memory per block in bytes for a kernel launch",
+	'workgroupsize': "Number of threads in a workgroup along the X, Y and Z dimensions for a kernel launch",
+	'stapmemperworkgroup': "Size of statically allocated shared memory per workgroup in bytes for a kernel launch",
 	'regperworkitem': "Number of registers used per thread for a kernel launch",
 	'occupancy': 'Percentage of the maximum warp count, 1.0 means the chip is completely full',
 	'memtransferdir': "Memory transfer direction (1 is host->device, 2 is device->host)",
@@ -19,13 +19,13 @@ DESCRIPTIONS = {
 	'gld_32b': "32-byte global memory load transactions",
 	'gld_64b': "64-byte global memory load transactions",
 	'gld_128b': "128-byte global memory load transactions",
-	'gld_request': "Global memory loads (increments per warp)", # include global, private e local memory
+	'gld_request': "Global memory loads (increments per warp)",
 	'gst_incoherent': "Non-coalesced (incoherent) global memory stores",
 	'gst_coherent': "Coalesced (coherent) global memory stores",
 	'gst_32b': "32-byte global memory store transactions",
 	'gst_64b': "64-byte global memory store transactions",
 	'gst_128b': "128-byte global memory store transactions",
-	'gst_request': "Global memory stores (increments per warp)", # include global, private e local memory
+	'gst_request': "Global memory stores (increments per warp)",
 	'local_load': "Local memory loads",
 	'local_store': "Local memory stores",
 	'branch': "Branches taken by threads executing a kernel",
@@ -100,11 +100,18 @@ for metrics in group(COUNTERS, 4):
 
 # Stampa dei dati relativi a ciascun evento
 for event in events:
-	# Nome dell'evento
-	print "== %s ==" % event['method']
+	# Nome, durata e bandwidth dell'evento
+	if 'memtransferdir' in event:
+		datasize = float(event['memtransferdir'])
+	else:
+		datasize = float(event['gld_32b']) * 32 + float(event['gld_64b']) * 64 + float(event['gld_128b']) * 128
+		datasize += float(event['gst_32b']) * 32 + float(event['gst_64b']) * 64 + float(event['gst_128b']) * 128
+	secs = float(event['gputime']) / 1e6
+	datasize_mb = datasize / (1024 * 1024)
+	print "== %s (%g ms, %g MiB/s) ==" % (event['method'], secs * 1000, datasize_mb / secs)
 	del event['method']
 
-	# Altri campi, con evntuale descrizione, qualora disponibile
+	# Altri campi, con eventuale descrizione, qualora disponibile
 	for key, value in event.items():
 		if key in DESCRIPTIONS:
 			helptext = ' ' + DESCRIPTIONS[key]
