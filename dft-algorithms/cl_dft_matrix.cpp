@@ -45,7 +45,7 @@ cl_dft_matrix<T>::cl_dft_matrix(int platform_index, int device_index, int sample
 	k_mtx_real2cpx = clhCreateKernel(program, "mtx_real2cpx");
 
 	// Parametri di lancio dei kernel mtx_cpx2cpx e mtx_real2cpx
-	groupSize = atoi(getenv("GS_X") ?: "128");
+	groupSize = atoi(getenv("GS_X") ?: "64");
 	globalSize = (samplesPerRun + groupSize - 1) / groupSize;
 	globalSize *= groupSize;
 
@@ -135,6 +135,7 @@ vector<cpx> cl_dft_matrix<cpx>::run(const vector<cpx> &input)
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 3, sizeof(cl_mem), &v_coeffs));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 4, groupSize * sizeof(cl_float2), NULL));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_mtx_cpx2cpx,
 		1,
@@ -200,6 +201,7 @@ vector<cpx> cl_dft_matrix<float>::run(const vector<float> &input)
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 3, sizeof(cl_mem), &v_coeffs));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 4, groupSize * sizeof(cl_float), NULL));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_mtx_real2cpx,
 		1,
@@ -242,7 +244,7 @@ void cl_dft_matrix<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_
 	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
 
 	const float kernel_secs = clhEventWaitAndGetDuration(kernel_evt);
-	const float kernel_memSizeMiB = (samplesPerRun*samplesMemSize + coeffsMemSize + resultMemSize) / SIZECONV_MB;
+	const float kernel_memSizeMiB = (samplesPerRun*samplesMemSize/groupSize + coeffsMemSize + resultMemSize) / SIZECONV_MB;
 
 	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
 	const float download_memSizeMiB = resultMemSize / SIZECONV_MB;
