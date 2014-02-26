@@ -14,7 +14,7 @@ void dft_cpx2cpx(__global cpx *samples, __global cpx *result, int N, float parte
 	for (int j = 0; j < N; j++)
 	{
 		float c, s = sincos(parteDipendenteDaK*j, &c);
-		sum += cmult(samples[j], (cpx)(c, s));
+		sum += cmult((cpx)(12, 34), (cpx)(c, s));
 	}
 
 	result[k] = sum;
