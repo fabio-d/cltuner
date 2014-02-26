@@ -20,9 +20,6 @@ void mtx_cpx2cpx(__global cpx *samples, __global cpx *result, int N, __global cp
 	const int id = get_local_id(0);
 	const int GS = get_local_size(0);
 
-	if (k >= N)
-		return;
-
 	cpx sum = (cpx)(0, 0);
 
 	for (int j_start = 0; j_start < N; j_start += GS)
@@ -36,11 +33,15 @@ void mtx_cpx2cpx(__global cpx *samples, __global cpx *result, int N, __global cp
 			temp[id] = samples[j_start + id];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-		for (int j = j_start; j < j_end; j++)
-			sum += cmult(temp[j - j_start], coeffs[j*N + k]);
+		if (k < N)
+		{
+			for (int j = j_start; j < j_end; j++)
+				sum += cmult(temp[j - j_start], coeffs[j*N + k]);
+		}
 	}
 
-	result[k] = sum;
+	if (k < N)
+		result[k] = sum;
 }
 
 __kernel
@@ -50,9 +51,6 @@ void mtx_real2cpx(__global float *samples, __global cpx *result, int N, __global
 	const int id = get_local_id(0);
 	const int GS = get_local_size(0);
 
-	if (k >= N)
-		return;
-
 	cpx sum = (cpx)(0, 0);
 
 	for (int j_start = 0; j_start < N; j_start += GS)
@@ -66,9 +64,13 @@ void mtx_real2cpx(__global float *samples, __global cpx *result, int N, __global
 			temp[id] = samples[j_start + id];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-		for (int j = j_start; j < j_end; j++)
-			sum += temp[j - j_start] * coeffs[j*N + k];
+		if (k < N)
+		{
+			for (int j = j_start; j < j_end; j++)
+				sum += temp[j - j_start] * coeffs[j*N + k];
+		}
 	}
 
-	result[k] = sum;
+	if (k < N)
+		result[k] = sum;
 }
