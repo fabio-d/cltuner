@@ -9,6 +9,7 @@ SET(QT_USE_QTMULTIMEDIA TRUE)
 include(${QT_USE_FILE})
 
 add_library(clhelpers
+	clhelpers/align.cpp
 	clhelpers/check_err.cpp
 	clhelpers/command_queue.cpp
 	clhelpers/context.cpp
@@ -54,3 +55,7 @@ set_target_properties(test-serial_nonrecursive_fft PROPERTIES COMPILE_FLAGS "-DA
 add_executable(test-cl_naive_dft dft-tests/test-cl.cpp)
 set_target_properties(test-cl_naive_dft PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_naive_dft -DALLOW_NPOT")
 target_link_libraries(test-cl_naive_dft OpenCL clhelpers)
+
+add_executable(test-cl_dft_matrix dft-tests/test-cl.cpp)
+set_target_properties(test-cl_dft_matrix PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_dft_matrix -DALLOW_NPOT")
+target_link_libraries(test-cl_dft_matrix OpenCL clhelpers)

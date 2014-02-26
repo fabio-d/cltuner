@@ -4,6 +4,7 @@
 #include "dft-algorithms/serial_nonrecursive_fft.cpp"
 
 #include "dft-algorithms/cl_naive_dft.cpp"
+#include "dft-algorithms/cl_dft_matrix.cpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -133,12 +134,12 @@ int main(int argc, const char **argv)
 
 	if (use_complex_inputs)
 	{
-		cl_naive_dft<cpx> instance(cl_platform_index, cl_device_index, input_size);
+		ALGOCLASS<cpx> instance(cl_platform_index, cl_device_index, input_size);
 		runTest<cpx>(&instance, input_size, print, check);
 	}
 	else
 	{
-		cl_naive_dft<float> instance(cl_platform_index, cl_device_index, input_size);
+		ALGOCLASS<float> instance(cl_platform_index, cl_device_index, input_size);
 		runTest<float>(&instance, input_size, print, check);
 	}
 }

@@ -9,6 +9,9 @@
 
 using namespace std;
 
+// align.cpp
+extern size_t clhAlignUp(size_t value, size_t alignment);
+
 // check_err.cpp
 extern void CL_CHECK_ERR(const char *prefix, cl_int status);
 

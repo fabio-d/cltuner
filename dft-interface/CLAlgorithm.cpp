@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "dft-algorithms/cl_naive_dft.cpp"
+#include "dft-algorithms/cl_dft_matrix.cpp"
 
 template <typename T>
 struct CLAlgorithm_real2cpx : public T, public DftAlgorithm
@@ -61,3 +62,6 @@ struct CLAlgorithm_cpx2cpx : public T, public DftAlgorithm
 
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_naive_dft<float> > > A(cl_naive_dft_algoName<float>());
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_naive_dft<cpx> > > B(cl_naive_dft_algoName<cpx>());
+
+static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_dft_matrix<float> > > C(cl_dft_matrix_algoName<float>());
+static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_dft_matrix<cpx> > > D(cl_dft_matrix_algoName<cpx>());
