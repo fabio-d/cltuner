@@ -14,7 +14,7 @@ void mtx_init(__global cpx *coeffs, int N, float parteFissa)
 }
 
 __kernel
-void mtx_cpx2cpx(__global cpx *samples, __global cpx *result, int N, __global cpx *coeffs, __local cpx *temp)
+void mtx_cpx2cpx(__global cpx *samples, __global cpx *result, int N, __global cpx *coeffs, __local float *temp_r, __local float *temp_i)
 {
 	const int k = get_global_id(0);
 	const int id = get_local_id(0);
@@ -30,13 +30,16 @@ void mtx_cpx2cpx(__global cpx *samples, __global cpx *result, int N, __global cp
 			barrier(CLK_LOCAL_MEM_FENCE);
 
 		if (j_start + id < j_end)
-			temp[id] = samples[j_start + id];
+		{
+			cpx v = samples[j_start + id];
+			temp_r[id] = v.x; temp_i[id] = v.y;
+		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
 		if (k < N)
 		{
 			for (int j = j_start; j < j_end; j++)
-				sum += cmult(temp[j - j_start], coeffs[j*N + k]);
+				sum += cmult((cpx)(temp_r[j - j_start], temp_i[j - j_start]), coeffs[j*N + k]);
 		}
 	}
 

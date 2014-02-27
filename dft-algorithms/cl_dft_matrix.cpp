@@ -135,7 +135,8 @@ vector<cpx> cl_dft_matrix<cpx>::run(const vector<cpx> &input)
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 1, sizeof(cl_mem), &v_result));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 3, sizeof(cl_mem), &v_coeffs));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 4, groupSize * sizeof(cl_float2), NULL));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 4, groupSize * sizeof(cl_float), NULL));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 5, groupSize * sizeof(cl_float), NULL));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_mtx_cpx2cpx,
 		1,
