@@ -5,6 +5,7 @@
 
 #include "dft-algorithms/cl_naive_dft.cpp"
 #include "dft-algorithms/cl_dft_matrix.cpp"
+#include "dft-algorithms/cl_dft_symmatrix.cpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -140,6 +141,6 @@ int main(int argc, const char **argv)
 	else
 	{
 		ALGOCLASS<float> instance(cl_platform_index, cl_device_index, input_size);
-		runTest<float>(&instance, input_size, print, check);
+		//runTest<float>(&instance, input_size, print, check);
 	}
 }

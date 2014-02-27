@@ -59,3 +59,7 @@ target_link_libraries(test-cl_naive_dft OpenCL clhelpers)
 add_executable(test-cl_dft_matrix dft-tests/test-cl.cpp)
 set_target_properties(test-cl_dft_matrix PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_dft_matrix -DALLOW_NPOT")
 target_link_libraries(test-cl_dft_matrix OpenCL clhelpers)
+
+add_executable(test-cl_dft_symmatrix dft-tests/test-cl.cpp)
+set_target_properties(test-cl_dft_symmatrix PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_dft_symmatrix -DALLOW_NPOT")
+target_link_libraries(test-cl_dft_symmatrix OpenCL clhelpers)
