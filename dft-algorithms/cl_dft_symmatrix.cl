@@ -41,22 +41,43 @@ void step1_cpx2cpx(__global cpx *samples, __global cpx *subtot, int N, __global 
 	// Caricamento coefficienti
 	const int coeff_x = group_x * GS + id_x;
 	const int coeff_y = group_y * GS + id_y;
-	tmp = coeffs[coeff_y * N + coeff_x];
-	scratch_real[id_y][id_x] = tmp.x;
-	scratch_imag[id_y][id_x] = tmp.y;
+	if (coeff_y * N + coeff_x < N*N)
+	{
+		tmp = coeffs[coeff_y * N + coeff_x];
+		scratch_real[id_y][id_x] = tmp.x;
+		scratch_imag[id_y][id_x] = tmp.y;
+	}
 
 	// Caricamento dei samples
 	if (id_y == 0)
 	{
-		tmp = samples[group_y * GS + id_x];
-		samplesA_real[id_x] = tmp.x;
-		samplesA_imag[id_x] = tmp.y;
+		const int load_idx = group_y * GS + id_x;
+		if (load_idx < N)
+		{
+			tmp = samples[load_idx];
+			samplesA_real[id_x] = tmp.x;
+			samplesA_imag[id_x] = tmp.y;
+		}
+		else
+		{
+			samplesA_real[id_x] = 0;
+			samplesA_imag[id_x] = 0;
+		}
 	}
 	else if (id_y == 1)
 	{
-		tmp = samples[group_x * GS + id_x];
-		samplesB_real[id_x] = tmp.x;
-		samplesB_imag[id_x] = tmp.y;
+		const int load_idx = group_x * GS + id_x;
+		if (load_idx < N)
+		{
+			tmp = samples[load_idx];
+			samplesB_real[id_x] = tmp.x;
+			samplesB_imag[id_x] = tmp.y;
+		}
+		else
+		{
+			samplesB_real[id_x] = 0;
+			samplesB_imag[id_x] = 0;
+		}
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -110,10 +131,21 @@ void step1_cpx2cpx(__global cpx *samples, __global cpx *subtot, int N, __global 
 		}
 	}
 
+	int store_y, store_x = 0x7FFFFFFF /* INT_MAX */;
+
 	if (id_y == 0)
-		subtot[group_y * N + (group_x * GS + id_x)] = (cpx)(scratch_real[id_y][id_x], scratch_imag[id_y][id_x]);
+	{
+		store_x = group_x * GS + id_x;
+		store_y = group_y;
+	}
 	else if (id_y == GS/2 && group_x != group_y /* evita di riscrivere se il blocco si trova sulla diagonale */)
-		subtot[group_x * N + (group_y * GS + id_x)] = (cpx)(scratch_real[id_y][id_x], scratch_imag[id_y][id_x]);
+	{
+		store_x = group_y * GS + id_x;
+		store_y = group_x;
+	}
+
+	if (store_x < N)
+		subtot[store_y * N + store_x] = (cpx)(scratch_real[id_y][id_x], scratch_imag[id_y][id_x]);
 }
 
 __kernel
