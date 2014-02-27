@@ -56,9 +56,9 @@ cl_dft_symmatrix<T>::cl_dft_symmatrix(int platform_index, int device_index, int 
 
 	// Parametri di lancio dei kernel step1_cpx2cpx e step1_real2cpx.
 	step1_groupSize[0] = GS;
-	step1_globalSize[0] = clhAlignUp(samplesPerRun, 16);
+	step1_globalSize[0] = clhAlignUp(samplesPerRun, GS);
 	step1_groupSize[1] = GS;
-	step1_globalSize[1] = clhAlignUp(samplesPerRun, 16);
+	step1_globalSize[1] = clhAlignUp(samplesPerRun, GS);
 
 	// Parametri di lancio dello step2
 	step2_groupSize = atoi(getenv("GS_X") ?: "128");
@@ -73,7 +73,7 @@ cl_dft_symmatrix<T>::cl_dft_symmatrix(int platform_index, int device_index, int 
 	v_samples = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, samplesMemSize, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
 
-	subtotRows = clhAlignUp(samplesPerRun, 16) / GS;
+	subtotRows = clhAlignUp(samplesPerRun, GS) / GS;
 	subtotMemSize = subtotRows * samplesPerRun * sizeof(cl_float2);
 	v_subtot = clCreateBuffer(context, CL_MEM_READ_WRITE, subtotMemSize, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
@@ -207,11 +207,11 @@ vector<cpx> cl_dft_symmatrix<cpx>::run(const vector<cpx> &input)
 
 	return result;
 }
-#if 0
+
 template <>
 vector<cpx> cl_dft_symmatrix<float>::run(const vector<float> &input)
 {
-	cl_event upload_unmap_evt, kernel_evt, download_map_evt;
+	cl_event upload_unmap_evt, step1_evt, step2_evt, download_map_evt;
 	cl_int err;
 
 	// Upload
@@ -232,22 +232,37 @@ vector<cpx> cl_dft_symmatrix<float>::run(const vector<float> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_samples, input_buffer, 0, NULL, &upload_unmap_evt));
 
-	// Lancio del kernel
+	// Lancio del primo step
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 0, sizeof(cl_mem), &v_samples));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 1, sizeof(cl_mem), &v_result));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 1, sizeof(cl_mem), &v_subtot));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
 	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 3, sizeof(cl_mem), &v_coeffs));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step1_real2cpx, 4, 2 * groupSize * sizeof(cl_float), NULL));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 		k_step1_real2cpx,
-		1,
+		2,
 		NULL,
-		&globalSize,
-		&groupSize,
+		step1_globalSize,
+		step1_groupSize,
 		1,
 		&upload_unmap_evt,
-		&kernel_evt
+		&step1_evt
+	));
+
+	// Lancio del secondo step
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step2, 0, sizeof(cl_mem), &v_subtot));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step2, 1, sizeof(cl_mem), &v_result));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step2, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_step2, 3, sizeof(cl_uint), &subtotRows));
+	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+		k_step2,
+		1,
+		NULL,
+		&step2_globalSize,
+		&step2_groupSize,
+		1,
+		&step1_evt,
+		&step2_evt
 	));
 
 	// Download
@@ -259,7 +274,7 @@ vector<cpx> cl_dft_symmatrix<float>::run(const vector<float> &input)
 		0,
 		resultMemSize,
 		1,
-		&kernel_evt,
+		&step2_evt,
 		&download_map_evt,
 		&err);
 	CL_CHECK_ERR("clEnqueueMapBuffer", err);
@@ -269,11 +284,10 @@ vector<cpx> cl_dft_symmatrix<float>::run(const vector<float> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_result, output_buffer, 0, NULL, NULL));
 
-	printStatsAndReleaseEvents(upload_unmap_evt, kernel_evt, download_map_evt);
+	printStatsAndReleaseEvents(upload_unmap_evt, step1_evt, step2_evt, download_map_evt);
 
 	return result;
 }
-#endif
 
 template <typename T>
 void cl_dft_symmatrix<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event step1_evt, cl_event step2_evt, cl_event download_map_evt)

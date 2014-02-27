@@ -141,6 +141,6 @@ int main(int argc, const char **argv)
 	else
 	{
 		ALGOCLASS<float> instance(cl_platform_index, cl_device_index, input_size);
-		//runTest<float>(&instance, input_size, print, check);
+		runTest<float>(&instance, input_size, print, check);
 	}
 }

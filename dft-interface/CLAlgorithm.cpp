@@ -67,5 +67,5 @@ static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_naive_dft<cpx> > >
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_dft_matrix<float> > > C(cl_dft_matrix_algoName<float>());
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_dft_matrix<cpx> > > D(cl_dft_matrix_algoName<cpx>());
 
-//static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_dft_symmatrix<float> > > E(cl_dft_symmatrix_algoName<float>());
+static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_dft_symmatrix<float> > > E(cl_dft_symmatrix_algoName<float>());
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_dft_symmatrix<cpx> > > F(cl_dft_symmatrix_algoName<cpx>());
