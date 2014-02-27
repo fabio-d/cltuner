@@ -6,6 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 
+#define _STRINGIFY(arg)	#arg
+#define STRINGIFY(arg)	_STRINGIFY(arg)
+
 template <typename T> const char *cl_dft_symmatrix_algoName();
 
 template <> const char *cl_dft_symmatrix_algoName<float>()
@@ -13,6 +16,8 @@ template <> const char *cl_dft_symmatrix_algoName<float>()
 
 template <> const char *cl_dft_symmatrix_algoName<cpx>()
 { return "OpenCL DFT symmetric matrix (complex-to-complex)"; }
+
+#define GS 16
 
 template <typename T>
 class cl_dft_symmatrix : public cl_base
@@ -43,17 +48,17 @@ template <typename T>
 cl_dft_symmatrix<T>::cl_dft_symmatrix(int platform_index, int device_index, int samplesPerRun)
 : cl_base(platform_index, device_index, samplesPerRun)
 {
-	program = clhBuildProgram(context, device, "dft-algorithms/cl_dft_symmatrix.cl");
+	program = clhBuildProgram(context, device, "dft-algorithms/cl_dft_symmatrix.cl", "-DGS=" STRINGIFY(GS));
 	k_mtx_init = clhCreateKernel(program, "symmtx_init");
 	k_step1_cpx2cpx = clhCreateKernel(program, "step1_cpx2cpx");
 	k_step1_real2cpx = clhCreateKernel(program, "step1_real2cpx");
 	k_step2 = clhCreateKernel(program, "step2");
 
 	// Parametri di lancio dei kernel step1_cpx2cpx e step1_real2cpx.
-	step1_groupSize[0] = 32;
-	step1_globalSize[0] = clhAlignUp(samplesPerRun, step1_groupSize[0]);
-	step1_groupSize[1] = 16;
-	step1_globalSize[1] = clhAlignUp(samplesPerRun, step1_groupSize[1]);
+	step1_groupSize[0] = GS;
+	step1_globalSize[0] = clhAlignUp(samplesPerRun, 16);
+	step1_groupSize[1] = GS;
+	step1_globalSize[1] = clhAlignUp(samplesPerRun, 16);
 
 	// Parametri di lancio dello step2
 	step2_groupSize = atoi(getenv("GS_X") ?: "128");
@@ -68,7 +73,7 @@ cl_dft_symmatrix<T>::cl_dft_symmatrix(int platform_index, int device_index, int 
 	v_samples = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, samplesMemSize, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
 
-	subtotRows = step1_globalSize[1] / step1_groupSize[1];
+	subtotRows = clhAlignUp(samplesPerRun, 16) / GS;
 	subtotMemSize = subtotRows * samplesPerRun * sizeof(cl_float2);
 	v_subtot = clCreateBuffer(context, CL_MEM_READ_WRITE, subtotMemSize, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
@@ -277,7 +282,7 @@ void cl_dft_symmatrix<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, 
 	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
 
 	const float step1_secs = clhEventWaitAndGetDuration(step1_evt);
-	const float step1_memSizeMiB = (samplesPerRun*samplesMemSize/step1_groupSize[0] + coeffsMemSize + subtotMemSize) / SIZECONV_MB;
+	const float step1_memSizeMiB = (samplesPerRun*samplesMemSize/GS + coeffsMemSize/2 + subtotMemSize) / SIZECONV_MB;
 	const float step2_secs = clhEventWaitAndGetDuration(step2_evt);
 	const float step2_memSizeMiB = (subtotMemSize + resultMemSize) / SIZECONV_MB;
 	const float stepBOTH_secs = step1_secs + step2_secs;
@@ -322,3 +327,7 @@ cl_dft_symmatrix<T>::~cl_dft_symmatrix()
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_step2));
 	CL_CHECK_ERR("clReleaseProgram", clReleaseProgram(program));
 }
+
+#undef _STRINGIFY
+#undef STRINGIFY
+#undef GS
