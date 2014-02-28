@@ -6,6 +6,7 @@
 #include "dft-algorithms/cl_naive_dft.cpp"
 #include "dft-algorithms/cl_dft_matrix.cpp"
 #include "dft-algorithms/cl_dft_symmatrix.cpp"
+#include "dft-algorithms/cl_dft_matrix_tex.cpp"
 
 #include <cstdlib>
 #include <cstring>
