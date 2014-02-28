@@ -26,6 +26,8 @@ DESCRIPTIONS = {
 	'gst_64b': "64-byte global memory store transactions",
 	'gst_128b': "128-byte global memory store transactions",
 	'gst_request': "Global memory stores (increments per warp)",
+	'tex_cache_hit': "Number of texture cache hits",
+	'tex_cache_miss': "Number of texture cache misses",
 	'local_load': "Local memory loads",
 	'local_store': "Local memory stores",
 	'branch': "Branches taken by threads executing a kernel",
@@ -45,8 +47,8 @@ FIXED_OPTIONS = [
 COUNTERS = [
 	'gld_incoherent', 'gld_coherent', 'gld_32b', 'gld_64b', 'gld_128b', 'gld_request',
 	'gst_incoherent', 'gst_coherent', 'gst_32b', 'gst_64b', 'gst_128b', 'gst_request',
-	'local_load', 'local_store', 'branch', 'divergent_branch',
-	'instructions', 'warp_serialize', 'cta_launched'
+	'tex_cache_hit', 'tex_cache_miss', 'local_load', 'local_store',
+	'branch', 'divergent_branch', 'instructions', 'warp_serialize', 'cta_launched'
 ]
 
 def group(elems, groupsize):
