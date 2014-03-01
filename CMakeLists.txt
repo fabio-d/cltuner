@@ -91,6 +91,7 @@ add_executable(tuner
 	tuner/SetupDialog.cpp
 	tuner/SpectrumAnalyzer.cpp
 	tuner/SpectrumWidget.cpp
+	tuner/TunesWidget.cpp
 
 	${tuner_UI_SRCS}
 

@@ -16,6 +16,9 @@ class SpectrumWidget : public QAbstractScrollArea
 		void zoomIn();
 		void zoomOut();
 
+	signals:
+		void highlightedKeyAvailable(int keyNumber);
+
 	protected:
 		void paintEvent(QPaintEvent *pe);
 		void resizeEvent(QResizeEvent *re);

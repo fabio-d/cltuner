@@ -13,7 +13,29 @@
   <property name="windowTitle">
    <string>CL tuner</string>
   </property>
-  <widget class="SpectrumWidget" name="spectrumWidget"/>
+  <widget class="QWidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="TunesWidget" name="tunesWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Box</enum>
+      </property>
+      <property name="renderHints">
+       <set>QPainter::Antialiasing|QPainter::TextAntialiasing</set>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="SpectrumWidget" name="spectrumWidget" native="true"/>
+    </item>
+   </layout>
+  </widget>
   <widget class="QToolBar" name="toolBar">
    <property name="windowTitle">
     <string>Barra degli strumenti</string>
@@ -66,9 +88,13 @@
  <customwidgets>
   <customwidget>
    <class>SpectrumWidget</class>
-   <extends>QFrame</extends>
+   <extends>QWidget</extends>
    <header>tuner/SpectrumWidget.h</header>
-   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>TunesWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>tuner/TunesWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

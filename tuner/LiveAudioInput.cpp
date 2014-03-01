@@ -7,7 +7,7 @@
 #include <QDebug>
 
 LiveAudioInput::LiveAudioInput(const QAudioDeviceInfo &audioDevice, int sampleRate, int samplesPerChunk, QObject *parent)
-: QObject(parent), receiver(this), samplesPerChunk(samplesPerChunk)
+: QObject(parent), m_receiver(this), m_samplesPerChunk(samplesPerChunk), m_sampleRate(sampleRate)
 {
 	QAudioFormat fmt;
 	fmt.setFrequency(sampleRate);
@@ -27,21 +27,26 @@ LiveAudioInput::LiveAudioInput(const QAudioDeviceInfo &audioDevice, int sampleRa
 		exit(EXIT_FAILURE);
 	}
 
-	input = new QAudioInput(audioDevice, fmt);
-	input->setBufferSize(500); // fino a 500 ms
+	m_input = new QAudioInput(audioDevice, fmt);
+	m_input->setBufferSize(500); // fino a 500 ms
 
-	connect(input, SIGNAL(stateChanged(QAudio::State)), this, SLOT(slotStateChanged(QAudio::State)));
+	connect(m_input, SIGNAL(stateChanged(QAudio::State)), this, SLOT(slotStateChanged(QAudio::State)));
 
-	receiver.open(QIODevice::WriteOnly);
-	input->start(&receiver);
+	m_receiver.open(QIODevice::WriteOnly);
+	m_input->start(&m_receiver);
 }
 
 LiveAudioInput::~LiveAudioInput()
 {
-	input->stop();
-	delete input;
+	m_input->stop();
+	delete m_input;
 
-	receiver.close();
+	m_receiver.close();
+}
+
+int LiveAudioInput::sampleRate() const
+{
+	return m_sampleRate;
 }
 
 void LiveAudioInput::slotStateChanged(QAudio::State state)
@@ -82,12 +87,12 @@ qint64 LiveAudioInput::ReceiverIODevice::writeData(const char *data, qint64 len)
 	buffer.append(data, len);
 
 	// Consuma chunks a blocchi di 2*samplesPerChunk bytes (2 byte per sample)
-	while (buffer.size() > 2*parent->samplesPerChunk)
+	while (buffer.size() > 2*parent->m_samplesPerChunk)
 	{
 		const qint16 *rawDataChunk = reinterpret_cast<const qint16*>(buffer.constData());
-		QVector<qint16> vecDataChunk(parent->samplesPerChunk);
-		memcpy(vecDataChunk.data(), rawDataChunk, 2*parent->samplesPerChunk);
-		buffer = buffer.mid(2*parent->samplesPerChunk);
+		QVector<qint16> vecDataChunk(parent->m_samplesPerChunk);
+		memcpy(vecDataChunk.data(), rawDataChunk, 2*parent->m_samplesPerChunk);
+		buffer = buffer.mid(2*parent->m_samplesPerChunk);
 		emit parent->newChunkAvailable(vecDataChunk);
 	}
 	return len;

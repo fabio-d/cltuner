@@ -1,5 +1,6 @@
 #include "SpectrumAnalyzer.h"
 
+#include <cmath>
 #include <numeric>
 
 SpectrumAnalyzer::SpectrumAnalyzer(LiveAudioInput *audioIn, DftAlgorithm *algorithm,
@@ -31,10 +32,30 @@ void SpectrumAnalyzer::slotAudioChunkAvailable(const QVector<qint16> &data)
 	m_algorithm->analyzeSpectrum(sum);
 }
 
+static bool isPeak(const float *elem, float threshold)
+{
+	return threshold < elem[0] && elem[-1] < elem[0] && elem[+1] < elem[0];
+}
+
 void SpectrumAnalyzer::slotSpectrumAnalyzed(const QVector<float> &data)
 {
 	const float average = std::accumulate(data.begin(), data.end(), .0f) / data.size();
-	const float threshold = 50 * average;
+	const float threshold = qMax(50 * average, .1f * data.size());
+
+	QSet<int> pressedKeys;
+
+	for (int i = 1; i < data.size() / 2; ++i)
+	{
+		if (isPeak(&data[i], threshold) && !isPeak(&data[i/2], threshold))
+		{
+			const float freq = 48000.0 * i / data.size();
+			const int nTasto = qRound(12 * log2(freq / 440) + 48);
+
+			if (nTasto >= 0 && nTasto < 88)
+				pressedKeys.insert(nTasto);
+		}
+	}
 
 	emit spectrumAvailable(data, threshold);
+	emit pressedKeysAvailable(pressedKeys);
 }

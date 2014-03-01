@@ -15,6 +15,8 @@ class LiveAudioInput : public QObject
 		LiveAudioInput(const QAudioDeviceInfo &audioDevice, int sampleRate, int samplesPerChunk, QObject *parent = 0);
 		~LiveAudioInput();
 
+		int sampleRate() const;
+
 	signals:
 		void newChunkAvailable(QVector<qint16> data);
 
@@ -36,9 +38,9 @@ class LiveAudioInput : public QObject
 				QByteArray buffer;
 		};
 
-		QAudioInput *input;
-		ReceiverIODevice receiver;
-		int samplesPerChunk;
+		QAudioInput *m_input;
+		ReceiverIODevice m_receiver;
+		int m_samplesPerChunk, m_sampleRate;
 };
 
 #endif // TUNER_LIVEAUDIOINPUT_H

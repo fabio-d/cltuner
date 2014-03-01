@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QScrollBar>
 
+#include <cmath>
 #include <numeric>
 
 #define ZOOM_INCREMENT	qreal(1.5)
@@ -39,6 +40,9 @@ void SpectrumWidget::zoomOut()
 
 void SpectrumWidget::paintEvent(QPaintEvent *pe)
 {
+	if (m_data.size() < 2)
+		return;
+
         QPainter p(viewport());
 	p.fillRect(pe->rect(), Qt::white);
         p.setRenderHint(QPainter::Antialiasing);
@@ -47,10 +51,8 @@ void SpectrumWidget::paintEvent(QPaintEvent *pe)
 	p.scale(viewport()->width() * m_zoomLevel, -viewport()->height());
 	p.translate(0, -1);
 
-	if (m_data.size() < 2)
-		return;
-
-	p.scale(1, 1 / m_maximum);
+	float vScale = qMax(m_maximum, float(m_data.size()));
+	p.scale(1, 1 / vScale);
 	p.setPen(Qt::red);
 	p.drawLine(0, m_threshold, 1, m_threshold);
 
@@ -63,12 +65,28 @@ void SpectrumWidget::paintEvent(QPaintEvent *pe)
 		path.lineTo(i, m_data[i]);
 	p.drawPath(path);
 
-	p.setPen(Qt::green);
-	for (int i = 0; i < m_data.size(); ++i)
+	int hlKey = -1;
+
+	p.setPen(Qt::red);
+	QPoint mousePos = mapFromGlobal(QCursor::pos());
+	if (mousePos.x() >= 0 && mousePos.x() < viewport()->width()
+		&& mousePos.y() >= 0 && mousePos.y() < viewport()->height())
 	{
-		if (m_data[i] > m_threshold)
-			p.drawLine(i, 0, i, m_maximum);
+		const int freq_idx = p.transform().inverted().map(mousePos).x();
+		p.drawLine(freq_idx, 0, freq_idx, vScale);
+
+		if (freq_idx != 0 && freq_idx < m_data.size() / 2)
+		{
+			const float freq = 48000.0 * freq_idx / m_data.size();
+			hlKey = qRound(12 * log2(freq / 440) + 49);
+
+			QString freqText = QString("%1 Hz").arg(freq);
+			p.resetTransform();
+			p.drawText(mousePos, freqText);
+		}
 	}
+
+	emit highlightedKeyAvailable((hlKey >= 0 && hlKey < 88) ? hlKey : -1);
 }
 
 void SpectrumWidget::resizeEvent(QResizeEvent *re)

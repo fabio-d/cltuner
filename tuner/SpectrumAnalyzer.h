@@ -6,6 +6,7 @@
 
 #include <QLinkedList>
 #include <QObject>
+#include <QSet>
 #include <QVector>
 
 /* Classe che prende dati in input e li forwarda all'algoritmo DFT */
@@ -19,6 +20,7 @@ class SpectrumAnalyzer : public QObject
 
 	signals:
 		void spectrumAvailable(const QVector<float> &data, float threshold);
+		void pressedKeysAvailable(const QSet<int> &pressedKeys);
 
 	private slots:
 		void slotAudioChunkAvailable(const QVector<qint16> &data);
