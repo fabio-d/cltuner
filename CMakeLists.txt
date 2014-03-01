@@ -23,7 +23,9 @@ add_library(clhelpers
 
 add_executable(tuner
 	tuner/main.cpp
+	tuner/LiveAudioInput.cpp
 	tuner/SetupDialog.cpp
+	tuner/SpectrumWindow.cpp
 
 	dft-interface/CLAlgorithm.cpp
 	dft-interface/DftAlgorithm.cpp

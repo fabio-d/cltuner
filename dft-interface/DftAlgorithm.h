@@ -11,6 +11,7 @@ class DftAlgorithm : public QObject
 	public:
 		virtual ~DftAlgorithm();
 
+	public slots:
 		virtual void analyzeSpectrum(const QVector<float> &audioSamples) = 0;
 
 	protected:

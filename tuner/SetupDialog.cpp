@@ -1,4 +1,5 @@
 #include "SetupDialog.h"
+#include "SpectrumWindow.h"
 
 #include "clhelpers/cl.h"
 #include "dft-interface/DftAlgorithmManager.h"
@@ -118,7 +119,7 @@ void SetupDialog::slotAudioDeviceChanged()
 	qSort(sampleRates);
 
 	foreach (const int r, sampleRates)
-		m_audioSampleRate->addItem(QString::number(r));
+		m_audioSampleRate->addItem(QString::number(r), QVariant::fromValue<int>(r));
 
 	// Selezionamo la più alta come predefinita
 	m_audioSampleRate->setCurrentIndex(sampleRates.count() - 1);
@@ -134,7 +135,8 @@ void SetupDialog::slotAccepted()
 		return; // Non chiamiamo accept()
 	}
 
-	const int window_size = m_window->itemData(m_computePlatform->currentIndex()).toInt();
+	const int sample_rate = m_audioSampleRate->itemData(m_audioSampleRate->currentIndex()).toInt();
+	const int window_size = m_window->itemData(m_window->currentIndex()).toInt();
 
 	DftAlgorithm *algorithmInstance;
 
@@ -160,5 +162,12 @@ void SetupDialog::slotAccepted()
 		algorithmInstance = algorithm.second(cl_platform_index, cl_device_index, window_size);
 	}
 
+	LiveAudioInput *audioIn = new LiveAudioInput(
+		m_availableAudioInputDevices[m_audioDevice->currentIndex()],
+		sample_rate,
+		window_size);
+
+	SpectrumWindow *w = new SpectrumWindow(audioIn, algorithmInstance);
 	accept();
+	w->show();
 }
