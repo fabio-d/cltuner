@@ -3,7 +3,7 @@
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
 
 __kernel
-void mtx_init(__global cpx *coeffs, int N, float parteFissa)
+void mtx_init(__write_only image2d_t coeffs, int N, float parteFissa)
 {
 	const int x = get_global_id(0);
 	const int y = get_global_id(1);
@@ -12,11 +12,11 @@ void mtx_init(__global cpx *coeffs, int N, float parteFissa)
 		return;
 
 	float c, s = sincos(parteFissa*x*y, &c);
-	coeffs[y*N + x] = (cpx)(c, s);
+	write_imagef(coeffs, (int2)(x, y), (float4)(c, s, 0, 0));
 }
 
 __kernel
-void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
+void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __read_only image2d_t coeffs)
 {
 	const int k = get_global_id(0);
 
@@ -26,13 +26,15 @@ void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __g
 	cpx sum = (cpx)(0, 0);
 
 	for (int j = 0; j < N; j++)
-		sum += cmult(read_imagef(samples, sampler, (int2)(1, j)).xy, coeffs[j*N + k]);
+		sum += cmult(
+			read_imagef(samples, sampler, (int2)(1, j)).xy,
+			read_imagef(coeffs, sampler, (int2)(k, j)).xy );
 
 	result[k] = sum;
 }
 
 __kernel
-void mtx_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
+void mtx_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __read_only image2d_t coeffs)
 {
 	const int k = get_global_id(0);
 
@@ -42,7 +44,8 @@ void mtx_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __
 	cpx sum = (cpx)(0, 0);
 
 	for (int j = 0; j < N; j++)
-		sum += read_imagef(samples, sampler, (int2)(1, j)).x * coeffs[j*N + k];
+		sum += read_imagef(samples, sampler, (int2)(1, j)).x
+			* read_imagef(coeffs, sampler, (int2)(k, j)).xy;
 
 	result[k] = sum;
 }

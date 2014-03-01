@@ -51,14 +51,17 @@ cl_dft_matrix_tex<T>::cl_dft_matrix_tex(int platform_index, int device_index, in
 
 	cl_int err;
 	coeffsMemSize = samplesPerRun * samplesPerRun * sizeof(cl_float2);
-	v_coeffs = clCreateBuffer(context, CL_MEM_READ_WRITE, coeffsMemSize, NULL, &err);
-	CL_CHECK_ERR("clCreateBuffer", err);
+	cl_image_format fmt1;
+	fmt1.image_channel_order = cl_channelOrder<cpx>();
+	fmt1.image_channel_data_type = CL_FLOAT;
+	v_coeffs = clCreateImage2D(context, CL_MEM_READ_WRITE, &fmt1, samplesPerRun, samplesPerRun, 0, NULL, &err);
+	CL_CHECK_ERR("clCreateImage2D", err);
 
 	samplesMemSize = cl_deviceDataSize<T>(samplesPerRun);
-	cl_image_format fmt;
-	fmt.image_channel_order = cl_channelOrder<T>();
-	fmt.image_channel_data_type = CL_FLOAT;
-	v_samples = clCreateImage2D(context, CL_MEM_READ_ONLY, &fmt, 1, samplesPerRun, 0, NULL, &err);
+	cl_image_format fmt2;
+	fmt2.image_channel_order = cl_channelOrder<T>();
+	fmt2.image_channel_data_type = CL_FLOAT;
+	v_samples = clCreateImage2D(context, CL_MEM_READ_ONLY, &fmt2, 1, samplesPerRun, 0, NULL, &err);
 	CL_CHECK_ERR("clCreateImage2D", err);
 
 	resultMemSize = samplesPerRun * sizeof(cl_float2);
