@@ -26,7 +26,7 @@ void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __g
 	cpx sum = (cpx)(0, 0);
 
 	for (int j = 0; j < N; j++)
-		sum += cmult(read_imagef(samples, sampler, (int2)(1, j)).xy, coeffs[j*N + k]);
+		sum += cmult(read_imagef(samples, sampler, (int2)(0, j)).xy, coeffs[j*N + k]);
 
 	result[k] = sum;
 }
@@ -42,7 +42,7 @@ void mtx_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __
 	cpx sum = (cpx)(0, 0);
 
 	for (int j = 0; j < N; j++)
-		sum += read_imagef(samples, sampler, (int2)(1, j)).x * coeffs[j*N + k];
+		sum += read_imagef(samples, sampler, (int2)(0, j)).x * coeffs[j*N + k];
 
 	result[k] = sum;
 }
