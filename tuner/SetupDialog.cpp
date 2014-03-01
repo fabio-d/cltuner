@@ -1,5 +1,5 @@
 #include "SetupDialog.h"
-#include "SpectrumWindow.h"
+#include "MainWindow.h"
 
 #include "clhelpers/cl.h"
 #include "dft-interface/DftAlgorithmManager.h"
@@ -167,7 +167,7 @@ void SetupDialog::slotAccepted()
 		sample_rate,
 		window_size);
 
-	SpectrumWindow *w = new SpectrumWindow(audioIn, algorithmInstance);
+	MainWindow *w = new MainWindow(audioIn, algorithmInstance);
 	accept();
 	w->show();
 }

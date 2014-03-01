@@ -21,11 +21,16 @@ add_library(clhelpers
 	clhelpers/program.cpp
 )
 
+qt4_wrap_ui(tuner_UI_SRCS tuner/MainWindow.ui)
 add_executable(tuner
 	tuner/main.cpp
 	tuner/LiveAudioInput.cpp
+	tuner/MainWindow.cpp
 	tuner/SetupDialog.cpp
-	tuner/SpectrumWindow.cpp
+	tuner/SpectrumAnalyzer.cpp
+	tuner/SpectrumWidget.cpp
+
+	${tuner_UI_SRCS}
 
 	dft-interface/CLAlgorithm.cpp
 	dft-interface/DftAlgorithm.cpp
