@@ -58,7 +58,7 @@ cl_dft_matrix_tex<T>::cl_dft_matrix_tex(int platform_index, int device_index, in
 	cl_image_format fmt;
 	fmt.image_channel_order = cl_channelOrder<T>();
 	fmt.image_channel_data_type = CL_FLOAT;
-	v_samples = clCreateImage2D(context, CL_MEM_READ_ONLY, &fmt, samplesPerRun, 1, 0, NULL, &err);
+	v_samples = clCreateImage2D(context, CL_MEM_READ_ONLY, &fmt, 1, samplesPerRun, 0, NULL, &err);
 	CL_CHECK_ERR("clCreateImage2D", err);
 
 	resultMemSize = samplesPerRun * sizeof(cl_float2);
@@ -113,7 +113,7 @@ vector<cpx> cl_dft_matrix_tex<cpx>::run(const vector<cpx> &input)
 
 	// Upload
 	const size_t origin[] = { 0, 0, 0 };
-	const size_t region[] = { samplesPerRun, 1, 1 };
+	const size_t region[] = { 1, samplesPerRun, 1 };
 	CL_CHECK_ERR("clEnqueueWriteImage", clEnqueueWriteImage(command_queue,
 		v_samples,
 		CL_TRUE,
@@ -175,7 +175,7 @@ vector<cpx> cl_dft_matrix_tex<float>::run(const vector<float> &input)
 
 	// Upload
 	const size_t origin[] = { 0, 0, 0 };
-	const size_t region[] = { samplesPerRun, 1, 1 };
+	const size_t region[] = { 1, samplesPerRun, 1 };
 	CL_CHECK_ERR("clEnqueueWriteImage", clEnqueueWriteImage(command_queue,
 		v_samples,
 		CL_TRUE,
