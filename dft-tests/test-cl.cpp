@@ -8,6 +8,10 @@
 #include "dft-algorithms/cl_dft_symmatrix.cpp"
 #include "dft-algorithms/cl_dft_matrix_tex.cpp"
 
+#ifdef HAVE_clFFT
+#include "dft-algorithms/clFFT.cpp"
+#endif
+
 #include <cstdlib>
 #include <cstring>
 #include <cctype>

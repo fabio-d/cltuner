@@ -8,6 +8,10 @@
 #include "dft-algorithms/cl_dft_symmatrix.cpp"
 #include "dft-algorithms/cl_dft_matrix_tex.cpp"
 
+#ifdef HAVE_clFFT
+#include "dft-algorithms/clFFT.cpp"
+#endif
+
 template <typename T>
 struct CLAlgorithm_real2cpx : public T, public DftAlgorithm
 {
@@ -73,3 +77,8 @@ static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_dft_symmatrix<cpx>
 
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< cl_dft_matrix_tex<float> > > G(cl_dft_matrix_tex_algoName<float>());
 static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< cl_dft_matrix_tex<cpx> > > H(cl_dft_matrix_tex_algoName<cpx>());
+
+#ifdef HAVE_clFFT
+static DftAlgorithmManager::CLPlugin< CLAlgorithm_real2cpx< clFFT<float> > > Y(clFFT_algoName<float>());
+static DftAlgorithmManager::CLPlugin< CLAlgorithm_cpx2cpx< clFFT<cpx> > > Z(clFFT_algoName<cpx>());
+#endif

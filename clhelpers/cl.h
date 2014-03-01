@@ -28,6 +28,7 @@ extern cl_device_id clhSelectDevice(cl_platform_id platform, int index);
 
 // event.cpp
 extern float clhEventWaitAndGetDuration(cl_event evt);
+extern float clhEventWaitAndGetDifference(cl_event eventStart, cl_event eventEnd);
 
 // kernel.cpp
 extern cl_kernel clhCreateKernel(cl_program program, const char *kernelName);
