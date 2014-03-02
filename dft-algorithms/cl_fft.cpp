@@ -76,7 +76,19 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 	cl_int err;
 	size_t twiddleFactorsCount = samplesPerRun / 2;
 	twiddleFactorsMemSize = twiddleFactorsCount * sizeof(cl_float2);
-	v_twiddleFactors = clCreateImage2D(context, CL_MEM_READ_WRITE, &fmt, 1, twiddleFactorsCount, 0, NULL, &err);
+	size_t rows, cols;
+	if (twiddleFactorsCount <= 4096)
+	{
+		cols = twiddleFactorsCount;
+		rows = 1;
+	}
+	else
+	{
+		cols = 4096;
+		rows = (twiddleFactorsCount + 4096 - 1) / 4096;
+	}
+	v_twiddleFactors = clCreateImage2D(context, CL_MEM_READ_WRITE, &fmt,
+		cols, rows, 0, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
 
 	fprintf(stderr, "Memoria occupata dai twiddle factors [N=%d]: %g KiB\n\n",
