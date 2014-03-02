@@ -24,7 +24,7 @@ class cl_fft : public cl_base
 		~cl_fft();
 
 	private:
-		size_t samplesMemSize, tmpMemSize;
+		size_t twiddleFactorsMemSize, samplesMemSize, tmpMemSize;
 
 		struct launch_grid
 		{
@@ -33,8 +33,9 @@ class cl_fft : public cl_base
 		vector<launch_grid> launches;
 
 		cl_program program;
-		cl_kernel k_fftstep_cpx2cpx, k_fftstep_real2cpx;
+		cl_kernel k_fftstep_init, k_fftstep_cpx2cpx, k_fftstep_real2cpx;
 
+		cl_mem v_twiddleFactors;
 		cl_mem v_samples;
 		cl_mem v_tmp1, v_tmp2;
 };
@@ -44,15 +45,23 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 : cl_base(platform_index, device_index, samplesPerRun)
 {
 	program = clhBuildProgram(context, device, "dft-algorithms/cl_fft.cl");
+	k_fftstep_init = clhCreateKernel(program, "fftstep_init");
 	k_fftstep_cpx2cpx = clhCreateKernel(program, "fftstep_cpx2cpx");
 	k_fftstep_real2cpx = clhCreateKernel(program, "fftstep_real2cpx");
+
+	cl_image_format fmt;
+	fmt.image_channel_order = cl_channelOrder<cpx>();
+	fmt.image_channel_data_type = CL_FLOAT;
+
+	// deve essere una una potenza di due
+	const size_t maxGroupSize = atoi(getenv("GS_X") ?: "128");
 
 	// Parametri di lancio dei kernel mtx_cpx2cpx e mtx_real2cpx
 	// Griglia con una riga per ogni coppia di righe nella matrice
 	launch_grid tmp;
 	tmp.globalSize[0] = samplesPerRun / 2;
 	tmp.globalSize[1] = 1;
-	tmp.groupSize[0] = atoi(getenv("GS_X") ?: "256");
+	tmp.groupSize[0] = maxGroupSize;
 	tmp.groupSize[1] = 1;
 
 	while (tmp.globalSize[0] != 0)
@@ -65,6 +74,13 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 	}
 
 	cl_int err;
+	size_t twiddleFactorsCount = samplesPerRun / 2;
+	twiddleFactorsMemSize = twiddleFactorsCount * sizeof(cl_float2);
+	v_twiddleFactors = clCreateImage2D(context, CL_MEM_READ_WRITE, &fmt, 1, twiddleFactorsCount, 0, NULL, &err);
+	CL_CHECK_ERR("clCreateBuffer", err);
+
+	fprintf(stderr, "Memoria occupata dai twiddle factors [N=%d]: %g KiB\n\n",
+		samplesPerRun, twiddleFactorsMemSize / 1.024e3);
 
 	samplesMemSize = cl_deviceDataSize<T>(samplesPerRun);
 	v_samples = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, samplesMemSize, NULL, &err);
@@ -75,6 +91,31 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 	CL_CHECK_ERR("clCreateBuffer", err);
 	v_tmp2 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, tmpMemSize, NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
+
+	cl_event init_evt;
+	size_t initGroupSize = min(maxGroupSize, twiddleFactorsCount);
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_init, 0, sizeof(cl_mem), &v_twiddleFactors));
+	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+		k_fftstep_init,
+		1,
+		NULL,
+		&twiddleFactorsCount,
+		&initGroupSize,
+		0,
+		NULL,
+		&init_evt
+	));
+
+	const float init_secs = clhEventWaitAndGetDuration(init_evt);
+	const float init_memSizeMiB = twiddleFactorsMemSize / SIZECONV_MB;
+
+	fprintf(stderr, "%s [N=%d, GS=%d]:\n",
+		"OpenCL FFT twiddle factors initialization", samplesPerRun, maxGroupSize);
+
+	fprintf(stderr, " kernel %g ms, %g MiB/s, %g valori/s\n",
+		init_secs * 1e3, init_memSizeMiB / init_secs, samplesPerRun / 2 / init_secs);
+
+	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(init_evt));
 }
 
 template <>
@@ -110,6 +151,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 	{
 		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
 		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 1, sizeof(cl_mem), &v_tmp2));
+		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 2, sizeof(cl_mem), &v_twiddleFactors));
 		CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 			k_fftstep_cpx2cpx,
 			2,
@@ -184,6 +226,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 
 		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
 		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_mem), &v_tmp2));
+		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &v_twiddleFactors));
 		CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 			kernel,
 			2,
@@ -275,6 +318,7 @@ cl_fft<T>::~cl_fft()
 	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_tmp1));
 	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_tmp2));
 
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_init));
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_cpx2cpx));
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_real2cpx));
 	CL_CHECK_ERR("clReleaseProgram", clReleaseProgram(program));

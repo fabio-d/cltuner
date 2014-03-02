@@ -1,7 +1,18 @@
 #include "cpx.cl"
 
+const sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
+
 __kernel
-void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out)
+void fftstep_init(__write_only image2d_t twiddle_factors)
+{
+	const float arg = -2.0 * M_PI_F * get_global_id(0) / (2 * get_global_size(0));
+
+	float c, s = sincos(arg, &c);
+	write_imagef(twiddle_factors, (int2)(0, get_global_id(0)), (float4)(c, s, 0, 0));
+}
+
+__kernel
+void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
 {
 	const int W = get_global_size(0);
 	const int H = 2*get_global_size(1);
@@ -14,8 +25,8 @@ void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out)
 	const int src_y1 = 2*k;
 	const int src_y2 = 2*k+1;
 
-	float c, s = sincos(k * -2.0 * M_PI_F / H, &c);
-	const cpx twiddle_factor = (cpx)(c, s);
+	const float texpos = (float)k / (H / 2);
+	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, (float2)(0, texpos)).xy;
 
 	const cpx p1 = vec_in[src_y1*W + src_x];
 	const cpx p2 = cmult(vec_in[src_y2*W + src_x], twiddle_factor);
@@ -25,7 +36,7 @@ void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out)
 }
 
 __kernel
-void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out)
+void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
 {
 	const int W = get_global_size(0);
 	const int H = 2*get_global_size(1);
@@ -38,8 +49,8 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out)
 	const int src_y1 = 2*k;
 	const int src_y2 = 2*k+1;
 
-	float c, s = sincos(k * -2.0 * M_PI_F / H, &c);
-	const cpx twiddle_factor = (cpx)(c, s);
+	const float texpos = (float)k / (H / 2);
+	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, (float2)(0, texpos)).xy;
 
 	const cpx p1 = (cpx)(vec_in[src_y1*W + src_x], 0);
 	const cpx p2 = vec_in[src_y2*W + src_x] * twiddle_factor;
