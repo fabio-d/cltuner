@@ -19,47 +19,41 @@ void fftstep_init(__write_only image2d_t twiddle_factors)
 }
 
 __kernel
-void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
+void fftstep_cpx2cpx(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Wshift, int Nhalf)
 {
-	const int W = get_global_size(0);
-	const int H = 2*get_global_size(1);
-	const int N = W*H;
-
 	const int src_x = get_global_id(0);
 	const int k = get_global_id(1);
 
-	const int dest_i = k*W + src_x;
-	const int src_y1 = 2*k;
-	const int src_y2 = 2*k+1;
+	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k << Wshift)).xy;
+	const int dest_row_idx = (k << Wshift);
 
-	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k*W)).xy;
+	const int dest_i = dest_row_idx + src_x;
+	const int src1_idx = dest_row_idx + dest_i; // == 2*dest_row_idx + src_x
+	const int src2_idx = src1_idx + (1 << Wshift);
 
-	const cpx p1 = vec_in[src_y1*W + src_x];
-	const cpx p2 = cmult(vec_in[src_y2*W + src_x], twiddle_factor);
+	const cpx p1 = vec_in[src1_idx];
+	const cpx p2 = cmult(vec_in[src2_idx], twiddle_factor);
 
 	vec_out[dest_i] = p1 + p2;
-	vec_out[dest_i + N/2] = p1 - p2;
+	vec_out[dest_i + Nhalf] = p1 - p2;
 }
 
 __kernel
-void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
+void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Wshift, int Nhalf)
 {
-	const int W = get_global_size(0);
-	const int H = 2*get_global_size(1);
-	const int N = W*H;
-
 	const int src_x = get_global_id(0);
 	const int k = get_global_id(1);
 
-	const int dest_i = k*W + src_x;
-	const int src_y1 = 2*k;
-	const int src_y2 = 2*k+1;
+	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k << Wshift)).xy;
+	const int dest_row_idx = (k << Wshift);
 
-	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k*W)).xy;
+	const int dest_i = dest_row_idx + src_x;
+	const int src1_idx = dest_row_idx + dest_i; // == 2*dest_row_idx + src_x
+	const int src2_idx = src1_idx + (1 << Wshift);
 
-	const cpx p1 = (cpx)(vec_in[src_y1*W + src_x], 0);
-	const cpx p2 = vec_in[src_y2*W + src_x] * twiddle_factor;
+	const cpx p1 = (cpx)(vec_in[src1_idx], 0);
+	const cpx p2 = vec_in[src2_idx] * twiddle_factor;
 
 	vec_out[dest_i] = p1 + p2;
-	vec_out[dest_i + N/2] = p1 - p2;
+	vec_out[dest_i + Nhalf] = p1 - p2;
 }
