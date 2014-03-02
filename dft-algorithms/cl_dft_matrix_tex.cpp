@@ -28,7 +28,7 @@ class cl_dft_matrix_tex : public cl_base
 		size_t groupSize, globalSize;
 
 		cl_program program;
-		cl_kernel k_mtx_init, k_mtx_cpx2cpx, k_mtx_real2cpx;
+		cl_kernel k_mtxtex_init, k_mtxtex_cpx2cpx, k_mtxtex_real2cpx;
 
 		cl_mem v_coeffs;
 		cl_mem v_samples;
@@ -40,9 +40,9 @@ cl_dft_matrix_tex<T>::cl_dft_matrix_tex(int platform_index, int device_index, in
 : cl_base(platform_index, device_index, samplesPerRun)
 {
 	program = clhBuildProgram(context, device, "dft-algorithms/cl_dft_matrix_tex.cl");
-	k_mtx_init = clhCreateKernel(program, "mtx_init");
-	k_mtx_cpx2cpx = clhCreateKernel(program, "mtx_cpx2cpx");
-	k_mtx_real2cpx = clhCreateKernel(program, "mtx_real2cpx");
+	k_mtxtex_init = clhCreateKernel(program, "mtxtex_init");
+	k_mtxtex_cpx2cpx = clhCreateKernel(program, "mtxtex_cpx2cpx");
+	k_mtxtex_real2cpx = clhCreateKernel(program, "mtxtex_real2cpx");
 
 	// Parametri di lancio dei kernel mtx_cpx2cpx e mtx_real2cpx
 	groupSize = atoi(getenv("GS_X") ?: "128");
@@ -79,11 +79,11 @@ cl_dft_matrix_tex<T>::cl_dft_matrix_tex(int platform_index, int device_index, in
 		clhAlignUp(samplesPerRun, init_groupSize[1])
 	};
 
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_init, 0, sizeof(cl_mem), &v_coeffs));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_init, 1, sizeof(cl_uint), &samplesPerRunAsCLUint));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_init, 2, sizeof(cl_float), &parteFissa));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_init, 0, sizeof(cl_mem), &v_coeffs));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_init, 1, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_init, 2, sizeof(cl_float), &parteFissa));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-		k_mtx_init,
+		k_mtxtex_init,
 		2,
 		NULL,
 		init_globalSize,
@@ -128,12 +128,12 @@ vector<cpx> cl_dft_matrix_tex<cpx>::run(const vector<cpx> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 0, sizeof(cl_mem), &v_samples));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 1, sizeof(cl_mem), &v_result));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_cpx2cpx, 3, sizeof(cl_mem), &v_coeffs));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_cpx2cpx, 0, sizeof(cl_mem), &v_samples));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_cpx2cpx, 1, sizeof(cl_mem), &v_result));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_cpx2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_cpx2cpx, 3, sizeof(cl_mem), &v_coeffs));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-		k_mtx_cpx2cpx,
+		k_mtxtex_cpx2cpx,
 		1,
 		NULL,
 		&globalSize,
@@ -190,12 +190,12 @@ vector<cpx> cl_dft_matrix_tex<float>::run(const vector<float> &input)
 
 	// Lancio del kernel
 	cl_uint samplesPerRunAsCLUint = samplesPerRun;
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 0, sizeof(cl_mem), &v_samples));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 1, sizeof(cl_mem), &v_result));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
-	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtx_real2cpx, 3, sizeof(cl_mem), &v_coeffs));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_real2cpx, 0, sizeof(cl_mem), &v_samples));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_real2cpx, 1, sizeof(cl_mem), &v_result));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_real2cpx, 2, sizeof(cl_uint), &samplesPerRunAsCLUint));
+	CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_mtxtex_real2cpx, 3, sizeof(cl_mem), &v_coeffs));
 	CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-		k_mtx_real2cpx,
+		k_mtxtex_real2cpx,
 		1,
 		NULL,
 		&globalSize,
@@ -266,8 +266,8 @@ cl_dft_matrix_tex<T>::~cl_dft_matrix_tex()
 	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_samples));
 	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_result));
 
-	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtx_init));
-	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtx_cpx2cpx));
-	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtx_real2cpx));
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtxtex_init));
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtxtex_cpx2cpx));
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_mtxtex_real2cpx));
 	CL_CHECK_ERR("clReleaseProgram", clReleaseProgram(program));
 }

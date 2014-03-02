@@ -3,7 +3,7 @@
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
 
 __kernel
-void mtx_init(__global cpx *coeffs, int N, float parteFissa)
+void mtxtex_init(__global cpx *coeffs, int N, float parteFissa)
 {
 	const int x = get_global_id(0);
 	const int y = get_global_id(1);
@@ -16,7 +16,7 @@ void mtx_init(__global cpx *coeffs, int N, float parteFissa)
 }
 
 __kernel
-void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
+void mtxtex_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
 {
 	const int k = get_global_id(0);
 
@@ -32,7 +32,7 @@ void mtx_cpx2cpx(__read_only image2d_t samples, __global cpx *result, int N, __g
 }
 
 __kernel
-void mtx_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
+void mtxtex_real2cpx(__read_only image2d_t samples, __global cpx *result, int N, __global cpx *coeffs)
 {
 	const int k = get_global_id(0);
 
