@@ -7,6 +7,7 @@
 #include "dft-algorithms/cl_dft_matrix.cpp"
 #include "dft-algorithms/cl_dft_symmatrix.cpp"
 #include "dft-algorithms/cl_dft_matrix_tex.cpp"
+#include "dft-algorithms/cl_fft.cpp"
 
 #ifdef HAVE_clFFT
 #include "dft-algorithms/clFFT.cpp"

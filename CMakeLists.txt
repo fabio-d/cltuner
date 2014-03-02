@@ -80,6 +80,10 @@ add_executable(test-cl_dft_symmatrix dft-tests/test-cl.cpp)
 set_target_properties(test-cl_dft_symmatrix PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_dft_symmatrix -DALLOW_NPOT")
 target_link_libraries(test-cl_dft_symmatrix ${CL_LIBRARIES})
 
+add_executable(test-cl_fft dft-tests/test-cl.cpp)
+set_target_properties(test-cl_fft PROPERTIES COMPILE_FLAGS "-DALGOCLASS=cl_fft")
+target_link_libraries(test-cl_fft ${CL_LIBRARIES})
+
 # Attiva automoc per il modulo tuner
 set(CMAKE_AUTOMOC ON)
 
