@@ -58,7 +58,6 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only
 	vec_out[dest_i + Nhalf] = p1 - p2;
 }
 
-// Da lanciare con workgroup size = OPTIBASE_GS*OPTIBASE_GS
 __kernel
 void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Wshift)
 {
@@ -78,21 +77,19 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 		{
 			const int k = (y_inizio + n_riga % OPTIBASE_GS) / 2 + (n_riga / OPTIBASE_GS) * (OPTIBASE_GS/2) * get_num_groups(0);
 			cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * stride)).xy;
-			scratch[get_local_id(0)] = cmult(tmp, twiddle_factor);
+			tmp = cmult(tmp, twiddle_factor);
 		}
-		else
-		{
-			scratch[get_local_id(0)] = tmp;
-		}
+
+		scratch[get_local_id(0)] = tmp;
 
 		// Attende che i dati in input siano pronti
 		barrier(CLK_LOCAL_MEM_FENCE);
 
 		const int src_x = get_local_id(0) % stride;
 		const int src_y1 = (2 * n_riga) % (OPTIBASE_GS * OPTIBASE_GS / stride);
-		const int src_y2 = src_y1 + 1;
-		const cpx p1 = scratch[src_y1 * stride + src_x];
-		const cpx p2 = scratch[src_y2 * stride + src_x];
+		const int src_idx1 = src_y1 * stride + src_x;
+		const cpx p1 = scratch[src_idx1];
+		const cpx p2 = scratch[src_idx1 + stride];
 
 		if (get_local_id(0) < OPTIBASE_GS * OPTIBASE_GS / 2)
 			tmp = p1 + p2;
