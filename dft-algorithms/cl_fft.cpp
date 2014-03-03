@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <cstdlib>
 
+#define _STRINGIFY(arg)	#arg
+#define STRINGIFY(arg)	_STRINGIFY(arg)
+
+// Dimensioni iniziali della matrice utilizzata per il caso base ottimizzato (fftstep_optibase)
+#define OPTIBASE_GS 16 // matrice quadrata 16x16
+
 template <typename T> const char *cl_fft_algoName();
 
 template <> const char *cl_fft_algoName<float>()
@@ -26,15 +32,16 @@ class cl_fft : public cl_base
 	private:
 		size_t twiddleFactorsMemSize, samplesMemSize, tmpMemSize;
 
-		struct launch_grid
+		struct launch_step
 		{
+			bool isOptibase;
 			size_t globalSize[2], groupSize[2];
 			cl_uint Wshift;
 		};
-		vector<launch_grid> launches;
+		vector<launch_step> launches;
 
 		cl_program program;
-		cl_kernel k_fftstep_init, k_fftstep_cpx2cpx, k_fftstep_real2cpx;
+		cl_kernel k_fftstep_init, k_fftstep_cpx2cpx, k_fftstep_real2cpx, k_fftstep_optibase;
 
 		cl_mem v_twiddleFactors;
 		cl_mem v_samples;
@@ -45,10 +52,12 @@ template <typename T>
 cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 : cl_base(platform_index, device_index, samplesPerRun)
 {
-	program = clhBuildProgram(context, device, "dft-algorithms/cl_fft.cl");
+	program = clhBuildProgram(context, device, "dft-algorithms/cl_fft.cl",
+		"-DOPTIBASE_GS=" STRINGIFY(OPTIBASE_GS) " -DOPTIBASE_GS=" STRINGIFY(OPTIBASE_GS));
 	k_fftstep_init = clhCreateKernel(program, "fftstep_init");
 	k_fftstep_cpx2cpx = clhCreateKernel(program, "fftstep_cpx2cpx");
 	k_fftstep_real2cpx = clhCreateKernel(program, "fftstep_real2cpx");
+	k_fftstep_optibase = clhCreateKernel(program, "fftstep_optibase");
 
 	cl_image_format fmt;
 	fmt.image_channel_order = cl_channelOrder<cpx>();
@@ -59,7 +68,7 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 
 	// Parametri di lancio dei kernel mtx_cpx2cpx e mtx_real2cpx
 	// Griglia con una riga per ogni coppia di righe nella matrice
-	launch_grid tmp;
+	launch_step tmp;
 	tmp.globalSize[0] = samplesPerRun / 2;
 	tmp.globalSize[1] = 1;
 	tmp.groupSize[0] = maxGroupSize;
@@ -73,8 +82,24 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 	{
 		if (tmp.groupSize[0] > tmp.globalSize[0])
 			tmp.groupSize[0] = tmp.globalSize[0];
-		tmp.Wshift = Wshift;
+
+		// sotto questo condizioni possiamo usare il kernel optibase
+		if (launches.size() != 1 && tmp.globalSize[0] == OPTIBASE_GS && samplesPerRun > OPTIBASE_GS * OPTIBASE_GS)
+		{
+			tmp.globalSize[0] = samplesPerRun;
+			tmp.groupSize[0] = OPTIBASE_GS * OPTIBASE_GS;
+			tmp.isOptibase = true;
+		}
+		else
+		{
+			tmp.Wshift = Wshift;
+			tmp.isOptibase = false;
+		}
+
 		launches.push_back(tmp);
+		if (tmp.isOptibase)
+			break;
+			
 		tmp.globalSize[0] /= 2;
 		tmp.globalSize[1] *= 2;
 		Wshift--;
@@ -169,21 +194,40 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 	cl_event prev_evt = upload_unmap_evt;
 	for (unsigned int i = 0; i < launches.size(); i++)
 	{
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 1, sizeof(cl_mem), &v_tmp2));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 2, sizeof(cl_mem), &v_twiddleFactors));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 3, sizeof(cl_uint), &launches[i].Wshift));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 4, sizeof(cl_uint), &Nhalf));
-		CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-			k_fftstep_cpx2cpx,
-			2,
-			NULL,
-			launches[i].globalSize,
-			launches[i].groupSize,
-			1,
-			&prev_evt,
-			&kernel_evts[i]
-		));
+		if (launches[i].isOptibase == false)
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 3, sizeof(cl_uint), &launches[i].Wshift));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 4, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_cpx2cpx,
+				2,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&kernel_evts[i]
+			));
+		}
+		else
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_optibase,
+				1,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&kernel_evts[i]
+			));
+		}
 
 		prev_evt = kernel_evts[i];
 		swap(v_tmp1, v_tmp2);
@@ -244,24 +288,42 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 	cl_event prev_evt = upload_unmap_evt;
 	for (unsigned int i = 0; i < launches.size(); i++)
 	{
-		// Solo il primo step ha input reali
-		cl_kernel kernel = (i == 0) ? k_fftstep_real2cpx : k_fftstep_cpx2cpx;
-
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_mem), &v_tmp2));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &v_twiddleFactors));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 3, sizeof(cl_uint), &launches[i].Wshift));
-		CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 4, sizeof(cl_uint), &Nhalf));
-		CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-			kernel,
-			2,
-			NULL,
-			launches[i].globalSize,
-			launches[i].groupSize,
-			1,
-			&prev_evt,
-			&kernel_evts[i]
-		));
+		if (launches[i].isOptibase == false)
+		{
+			// Solo il primo step ha input reali
+			cl_kernel kernel = (i == 0) ? k_fftstep_real2cpx : k_fftstep_cpx2cpx;
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 3, sizeof(cl_uint), &launches[i].Wshift));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 4, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				kernel,
+				2,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&kernel_evts[i]
+			));
+		}
+		else
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_optibase,
+				1,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&kernel_evts[i]
+			));
+		}
 
 		prev_evt = kernel_evts[i];
 		swap(v_tmp1, v_tmp2);
@@ -299,7 +361,9 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *
 	const float upload_secs = clhEventWaitAndGetDuration(upload_unmap_evt);
 	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
 
-	const float step_memSizeMiB = (samplesMemSize + tmpMemSize) / SIZECONV_MB;
+	const float step0_memSizeMiB = (samplesMemSize + tmpMemSize) / SIZECONV_MB;
+	const float stepN_memSizeMiB = (2*tmpMemSize) / SIZECONV_MB;
+	const float optibase_memSizeMiB = stepN_memSizeMiB;
 
 	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
 	const float download_memSizeMiB = tmpMemSize / SIZECONV_MB;
@@ -311,18 +375,32 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *
 		upload_secs * 1e3, upload_memSizeMiB / upload_secs);
 
 	float kernel_secs = 0;
+	float kernel_mem = 0;
 	for (unsigned int i = 0; i < launches.size(); i++)
 	{
 		const float step_secs = clhEventWaitAndGetDuration(kernel_evts[i]);
-		fprintf(stderr, " step%d [GRID=%dx%d GS=%dx%d] %g ms, %g MiB/s\n", i,
-			(int)(launches[i].globalSize[0] / launches[i].groupSize[0]),
-			(int)(launches[i].globalSize[1] / launches[i].groupSize[1]),
-			(int)launches[i].groupSize[0], (int)launches[i].groupSize[1],
-			step_secs * 1e3, step_memSizeMiB / step_secs, samplesPerRun / kernel_secs);
+		if (launches[i].isOptibase == false)
+		{
+			const float memSizeMiB = (i == 0) ? step0_memSizeMiB : stepN_memSizeMiB;
+			fprintf(stderr, " step%d [GRID=%dx%d GS=%dx%d] %g ms, %g MiB/s\n", i,
+				(int)(launches[i].globalSize[0] / launches[i].groupSize[0]),
+				(int)(launches[i].globalSize[1] / launches[i].groupSize[1]),
+				(int)launches[i].groupSize[0], (int)launches[i].groupSize[1],
+				step_secs * 1e3, memSizeMiB / step_secs);
+			kernel_mem += memSizeMiB;
+		}
+		else
+		{
+			fprintf(stderr, " stepOptibase [GRID=%d GS=%d] %g ms, %g MiB/s\n",
+				(int)(launches[i].globalSize[0] / launches[i].groupSize[0]),
+				(int)launches[i].groupSize[0],
+				step_secs * 1e3, optibase_memSizeMiB / step_secs);
+			kernel_mem += optibase_memSizeMiB;
+		}
 		kernel_secs += step_secs;
 	}
 	fprintf(stderr, " TOTAL %g ms, %g MiB/s, %g Ksamples/s\n",
-		kernel_secs * 1e3, launches.size() * step_memSizeMiB / kernel_secs, 1e-3 * samplesPerRun / kernel_secs);
+		kernel_secs * 1e3, kernel_mem / kernel_secs, 1e-3 * samplesPerRun / kernel_secs);
 	fprintf(stderr, " download %g ms, %g MiB/s\n",
 		download_secs * 1e3, download_memSizeMiB / download_secs);
 
@@ -346,5 +424,10 @@ cl_fft<T>::~cl_fft()
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_init));
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_cpx2cpx));
 	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_real2cpx));
+	CL_CHECK_ERR("clReleaseKernel", clReleaseKernel(k_fftstep_optibase));
 	CL_CHECK_ERR("clReleaseProgram", clReleaseProgram(program));
 }
+
+#undef _STRINGIFY
+#undef STRINGIFY
+#undef OPTIBASE_GS

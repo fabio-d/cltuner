@@ -57,3 +57,57 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only
 	vec_out[dest_i] = p1 + p2;
 	vec_out[dest_i + Nhalf] = p1 - p2;
 }
+
+// Da lanciare con workgroup size = OPTIBASE_GS*OPTIBASE_GS
+__kernel
+void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
+{
+	const int y_inizio = get_group_id(0) * OPTIBASE_GS;
+	cpx tmp;
+
+	__local cpx scratch[OPTIBASE_GS * OPTIBASE_GS];
+	tmp = vec_in[y_inizio * OPTIBASE_GS + get_local_id(0)];
+
+	int stride = OPTIBASE_GS; // Cambia ad ogni iterazione
+	while (true)
+	{
+		// Se siamo a una riga dispari dobbiamo applicare i twiddle_factors
+		const int n_riga = get_local_id(0) / stride;
+		if (n_riga % 2 == 1)
+		{
+			const int k = (y_inizio + n_riga % OPTIBASE_GS) / 2 + (n_riga / OPTIBASE_GS) * (OPTIBASE_GS/2) * get_num_groups(0);
+			cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * stride)).xy;
+			scratch[get_local_id(0)] = cmult(tmp, twiddle_factor);
+		}
+		else
+		{
+			scratch[get_local_id(0)] = tmp;
+		}
+
+		// Attende che i dati in input siano pronti
+		barrier(CLK_LOCAL_MEM_FENCE);
+
+		const int src_x = get_local_id(0) % stride;
+		const int src_y1 = (2 * n_riga) % (OPTIBASE_GS * OPTIBASE_GS / stride);
+		const int src_y2 = src_y1 + 1;
+		const cpx p1 = scratch[src_y1 * stride + src_x];
+		const cpx p2 = scratch[src_y2 * stride + src_x];
+
+		if (get_local_id(0) < OPTIBASE_GS * OPTIBASE_GS / 2)
+			tmp = p1 + p2;
+		else
+			tmp = p1 - p2;
+
+		stride /= 2;
+		if (stride == 0)
+			break;
+
+		// Attende che tutti abbiano finito di consumare l'input prima di scrivere il risultato
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+
+	const int n_colonna = get_local_id(0) % (OPTIBASE_GS / 2);
+	const int n_riga = get_local_id(0) / (OPTIBASE_GS / 2);
+	const int destidx = (y_inizio + n_riga * get_num_groups(0) * OPTIBASE_GS) / 2 + n_colonna;
+	vec_out[destidx] = tmp;
+}
