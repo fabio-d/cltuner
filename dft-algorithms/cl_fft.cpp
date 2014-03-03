@@ -10,7 +10,7 @@
 #define STRINGIFY(arg)	_STRINGIFY(arg)
 
 // Dimensioni iniziali della matrice utilizzata per il caso base ottimizzato (fftstep_optibase)
-#define OPTIBASE_GS 16 // matrice quadrata 16x16
+#define OPTIBASE_GS 8 // matrice quadrata 8x8
 
 template <typename T> const char *cl_fft_algoName();
 
@@ -88,6 +88,7 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 		{
 			tmp.globalSize[0] = samplesPerRun;
 			tmp.groupSize[0] = OPTIBASE_GS * OPTIBASE_GS;
+			tmp.Wshift = (int)log2(OPTIBASE_GS);
 			tmp.isOptibase = true;
 		}
 		else
@@ -217,6 +218,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &launches[i].Wshift));
 			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 				k_fftstep_optibase,
 				1,
@@ -313,6 +315,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
 			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &launches[i].Wshift));
 			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
 				k_fftstep_optibase,
 				1,

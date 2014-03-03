@@ -60,7 +60,7 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only
 
 // Da lanciare con workgroup size = OPTIBASE_GS*OPTIBASE_GS
 __kernel
-void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors)
+void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Wshift)
 {
 	const int y_inizio = get_group_id(0) * OPTIBASE_GS;
 	cpx tmp;
@@ -68,9 +68,10 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 	__local cpx scratch[OPTIBASE_GS * OPTIBASE_GS];
 	tmp = vec_in[y_inizio * OPTIBASE_GS + get_local_id(0)];
 
-	int stride = OPTIBASE_GS; // Cambia ad ogni iterazione
 	while (true)
 	{
+		const int stride = 1 << Wshift;
+
 		// Se siamo a una riga dispari dobbiamo applicare i twiddle_factors
 		const int n_riga = get_local_id(0) / stride;
 		if (n_riga % 2 == 1)
@@ -98,8 +99,7 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 		else
 			tmp = p1 - p2;
 
-		stride /= 2;
-		if (stride == 0)
+		if (Wshift-- == 0)
 			break;
 
 		// Attende che tutti abbiano finito di consumare l'input prima di scrivere il risultato
