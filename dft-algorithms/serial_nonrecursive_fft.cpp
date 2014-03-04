@@ -67,9 +67,9 @@ vector<cpx> serial_nonrecursive_fft(const vector<T> &data)
 	const clock_t end = clock();
 	const float secs = (end - start) / float(CLOCKS_PER_SEC);
 	const float memSizeKiB = memSize / SIZECONV_MB;
-	fprintf(stderr, "%s [N=%d]: %g ms, %g MiB/s, %g samples/s\n",
+	fprintf(stderr, "%s [N=%d]: %g ms, %g MiB/s, %g Ksamples/s\n",
 		serial_nonrecursive_fft_algoName<T>(),
-		N, secs * 1e3, memSizeKiB / secs, N / secs);
+		N, secs * 1e3, memSizeKiB / secs, 1e-3 * N / secs);
 
 	return *result;
 }
