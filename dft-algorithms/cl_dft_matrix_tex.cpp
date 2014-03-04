@@ -236,7 +236,7 @@ void cl_dft_matrix_tex<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt,
 	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
 
 	const float kernel_secs = clhEventWaitAndGetDuration(kernel_evt);
-	const float kernel_memSizeMiB = (samplesPerRun*samplesMemSize + coeffsMemSize + resultMemSize) / SIZECONV_MB;
+	const float kernel_memSizeMiB = (coeffsMemSize + resultMemSize) / SIZECONV_MB;
 
 	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
 	const float download_memSizeMiB = resultMemSize / SIZECONV_MB;
