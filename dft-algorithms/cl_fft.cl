@@ -64,7 +64,8 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 	const int y_inizio = get_group_id(0) * OPTIBASE_GS;
 	cpx tmp;
 
-	__local cpx scratch[OPTIBASE_GS * OPTIBASE_GS];
+	__local float scratch_real[OPTIBASE_GS * OPTIBASE_GS];
+	__local float scratch_imag[OPTIBASE_GS * OPTIBASE_GS];
 	tmp = vec_in[y_inizio * OPTIBASE_GS + get_local_id(0)];
 
 	while (true)
@@ -80,7 +81,8 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 			tmp = cmult(tmp, twiddle_factor);
 		}
 
-		scratch[get_local_id(0)] = tmp;
+		scratch_real[get_local_id(0)] = tmp.x;
+		scratch_imag[get_local_id(0)] = tmp.y;
 
 		// Attende che i dati in input siano pronti
 		barrier(CLK_LOCAL_MEM_FENCE);
@@ -88,8 +90,9 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 		const int src_x = get_local_id(0) % stride;
 		const int src_y1 = (2 * n_riga) % (OPTIBASE_GS * OPTIBASE_GS / stride);
 		const int src_idx1 = src_y1 * stride + src_x;
-		const cpx p1 = scratch[src_idx1];
-		const cpx p2 = scratch[src_idx1 + stride];
+		const int src_idx2 = src_idx1 + stride;
+		const cpx p1 = (cpx)(scratch_real[src_idx1], scratch_imag[src_idx1]);
+		const cpx p2 = (cpx)(scratch_real[src_idx2], scratch_imag[src_idx2]);
 
 		if (get_local_id(0) < OPTIBASE_GS * OPTIBASE_GS / 2)
 			tmp = p1 + p2;
