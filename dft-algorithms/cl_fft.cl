@@ -58,14 +58,19 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only
 	vec_out[dest_i + Nhalf] = p1 - p2;
 }
 
+inline int pitched_idx(int idx, int W)
+{
+	return idx + idx/16 * (W % 16);
+}
+
 __kernel
 void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Wshift)
 {
 	const int y_inizio = get_group_id(0) * OPTIBASE_GS;
 	cpx tmp;
 
-	__local float scratch_real[OPTIBASE_GS * OPTIBASE_GS];
-	__local float scratch_imag[OPTIBASE_GS * OPTIBASE_GS];
+	__local float scratch_real[OPTIBASE_GS * OPTIBASE_GS * 2];
+	__local float scratch_imag[OPTIBASE_GS * OPTIBASE_GS * 2];
 	tmp = vec_in[y_inizio * OPTIBASE_GS + get_local_id(0)];
 
 	while (true)
@@ -81,8 +86,9 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 			tmp = cmult(tmp, twiddle_factor);
 		}
 
-		scratch_real[get_local_id(0)] = tmp.x;
-		scratch_imag[get_local_id(0)] = tmp.y;
+		const int destidx = pitched_idx(get_local_id(0), stride);
+		scratch_real[destidx] = tmp.x;
+		scratch_imag[destidx] = tmp.y;
 
 		// Attende che i dati in input siano pronti
 		barrier(CLK_LOCAL_MEM_FENCE);
@@ -90,9 +96,10 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 		const int src_x = get_local_id(0) % stride;
 		const int src_y1 = (2 * n_riga) % (OPTIBASE_GS * OPTIBASE_GS / stride);
 		const int src_idx1 = src_y1 * stride + src_x;
-		const int src_idx2 = src_idx1 + stride;
-		const cpx p1 = (cpx)(scratch_real[src_idx1], scratch_imag[src_idx1]);
-		const cpx p2 = (cpx)(scratch_real[src_idx2], scratch_imag[src_idx2]);
+		const int src_pidx1 = pitched_idx(src_idx1, stride);
+		const int src_pidx2 = pitched_idx(src_idx1 + stride, stride);
+		const cpx p1 = (cpx)(scratch_real[src_pidx1], scratch_imag[src_pidx1]);
+		const cpx p2 = (cpx)(scratch_real[src_pidx2], scratch_imag[src_pidx2]);
 
 		if (get_local_id(0) < OPTIBASE_GS * OPTIBASE_GS / 2)
 			tmp = p1 + p2;
