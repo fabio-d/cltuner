@@ -79,12 +79,9 @@ void fftstep_optibase(__global cpx *vec_in, __global cpx *vec_out, __read_only i
 
 		// Se siamo a una riga dispari dobbiamo applicare i twiddle_factors
 		const int n_riga = get_local_id(0) / stride;
-		if (n_riga % 2 == 1)
-		{
-			const int k = (y_inizio + n_riga % OPTIBASE_GS) / 2 + (n_riga / OPTIBASE_GS) * (OPTIBASE_GS/2) * get_num_groups(0);
-			cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * stride)).xy;
-			tmp = cmult(tmp, twiddle_factor);
-		}
+		const int k = (y_inizio + n_riga % OPTIBASE_GS) / 2 + (n_riga / OPTIBASE_GS) * (OPTIBASE_GS/2) * get_num_groups(0);
+		cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * stride)).xy;
+		tmp = cmult(tmp, select(twiddle_factor, (cpx)(1, 0), (int2)(n_riga % 2 - 1)));
 
 		const int destidx = pitched_idx(get_local_id(0), stride);
 		scratch_real[destidx] = tmp.x;
