@@ -82,6 +82,7 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 	{
 		if (tmp.groupSize[0] > tmp.globalSize[0])
 			tmp.groupSize[0] = tmp.globalSize[0];
+		tmp.groupSize[1] = min(maxGroupSize / tmp.groupSize[0], tmp.globalSize[1]);
 
 		// sotto questo condizioni possiamo usare il kernel optibase
 		if (launches.size() != 1 && tmp.globalSize[0] == OPTIBASE_GS && samplesPerRun > OPTIBASE_GS * OPTIBASE_GS)
