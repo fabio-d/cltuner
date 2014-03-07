@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 
 #define _STRINGIFY(arg)	#arg
@@ -383,6 +384,10 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 	return result;
 }
 
+template <typename T> const char *cl_fft_kernelName();
+template <> const char *cl_fft_kernelName<float>() { return "real2cpx"; }
+template <> const char *cl_fft_kernelName<cpx>() { return "cpx2cpx"; }
+
 template <typename T>
 void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt)
 {
@@ -407,7 +412,11 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event s
 	{
 		const float step_secs = clhEventWaitAndGetDuration(kernel_evts[i]);
 		const float memSizeMiB = (i == 0) ? step0_memSizeMiB : stepN_memSizeMiB;
-		const char *kernel_name = launches[i].optisize != -1 ? "optisize" : "regular";
+		char kernel_name[30];
+		if (launches[i].optisize == -1)
+			strcpy(kernel_name, i == 0 ? cl_fft_kernelName<T>() : "cpx2cpx");
+		else
+			sprintf(kernel_name, "opti%d", launches[i].optisize);
 		fprintf(stderr, " step%d (%s) [GRID=%dx%d GS=%dx%d] %g ms, %g MiB/s\n",
 			i, kernel_name,
 			(int)(launches[i].globalSize[0] / launches[i].groupSize[0]),
