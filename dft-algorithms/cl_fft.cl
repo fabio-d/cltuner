@@ -59,51 +59,28 @@ void fftstep_real2cpx(__global float *vec_in, __global cpx *vec_out, __read_only
 }
 
 __kernel
-void fftstep_opti1(__global float4 *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Nhalf)
+void fftstep_optibase(__global float8 *vec_in, __global cpx *vec_out, __read_only image2d_t twiddle_factors, int Nhalf)
 {
-	// assumiamo get_global_id(0) == 0
-	const int k = get_global_id(1);
+	const int k = get_global_id(0);
 
-	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k)).xy;
-
-	const float4 data = vec_in[k];
-	const cpx p1 = data.xy;
-	const cpx p2 = cmult(data.zw, twiddle_factor);
-
-	vec_out[k] = p1 + p2;
-	vec_out[k + Nhalf] = p1 - p2;
-}
-
-__kernel
-void fftstep_opti2(__global float8 *vec_in, __global float4 *vec_out, __read_only image2d_t twiddle_factors, int Nhalf)
-{
-	const int k = get_global_id(1);
-
-	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * 2)).xy;
+	const cpx twiddle_factor2 = read_imagef(twiddle_factors, sampler, wrap_index(k * 2)).xy;
 
 	const float8 data = vec_in[k];
 	const float4 p1 = data.s0123;
-	const float4 p2 = (float4)(cmult(data.s45, twiddle_factor), cmult(data.s67, twiddle_factor));
+	const float4 p2 = (float4)(cmult(data.s45, twiddle_factor2), cmult(data.s67, twiddle_factor2));
 
-	vec_out[k] = p1 + p2;
-	vec_out[k + Nhalf] = p1 - p2;
-}
+	const float4 intermA = p1 + p2;
+	const float4 intermB = p1 - p2;
 
-__kernel
-void fftstep_opti4(__global float16 *vec_in, __global float8 *vec_out, __read_only image2d_t twiddle_factors, int Nhalf)
-{
-	const int k = get_global_id(1);
+	const cpx twiddle_factor1A = read_imagef(twiddle_factors, sampler, wrap_index(k)).xy;
 
-	const cpx twiddle_factor = read_imagef(twiddle_factors, sampler, wrap_index(k * 4)).xy;
+	const cpx p2A = cmult(intermA.zw, twiddle_factor1A);
+	vec_out[k] = intermA.xy + p2A;
+	vec_out[Nhalf + k] = intermA.xy - p2A;
 
-	const float16 data = vec_in[k];
-	const float8 p1 = data.s01234567;
-	const float8 p2 = (float8)(
-		cmult(data.s89, twiddle_factor),
-		cmult(data.sAB, twiddle_factor),
-		cmult(data.sCD, twiddle_factor),
-		cmult(data.sEF, twiddle_factor));
+	const cpx twiddle_factor1B = read_imagef(twiddle_factors, sampler, wrap_index(Nhalf/2 + k)).xy;
 
-	vec_out[k] = p1 + p2;
-	vec_out[k + Nhalf] = p1 - p2;
+	const cpx p2B = cmult(intermB.zw, twiddle_factor1B);
+	vec_out[k + Nhalf/2] = intermB.xy + p2B;
+	vec_out[Nhalf + k + Nhalf/2] = intermB.xy - p2B;
 }
