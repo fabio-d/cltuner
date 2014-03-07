@@ -26,7 +26,7 @@ class cl_fft : public cl_base
 	public:
 		cl_fft(int platform_index, int device_index, int samplesPerRun);
 		vector<cpx> run(const vector<T> &input);
-		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *kernel_evts, cl_event download_map_evt);
+		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt);
 		~cl_fft();
 
 	private:
@@ -166,7 +166,7 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 template <>
 vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 {
-	cl_event upload_unmap_evt, download_map_evt, *kernel_evts = new cl_event[launches.size()];
+	cl_event upload_unmap_evt, start_evt, download_map_evt, *kernel_evts = new cl_event[launches.size()];
 	cl_int err;
 
 	// Upload
@@ -189,6 +189,8 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 	}
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_samples, input_buffer, 0, NULL, &upload_unmap_evt));
+
+	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, &start_evt));
 
 	// Lanci del kernel
 	cl_uint Nhalf = samplesPerRun / 2;
@@ -254,7 +256,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_tmp1, output_buffer, 0, NULL, NULL));
 
-	printStatsAndReleaseEvents(upload_unmap_evt, kernel_evts, download_map_evt);
+	printStatsAndReleaseEvents(upload_unmap_evt, start_evt, kernel_evts, download_map_evt);
 
 	delete kernel_evts;
 
@@ -264,7 +266,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 template <>
 vector<cpx> cl_fft<float>::run(const vector<float> &input)
 {
-	cl_event upload_unmap_evt, download_map_evt, *kernel_evts = new cl_event[launches.size()];
+	cl_event upload_unmap_evt, start_evt, download_map_evt, *kernel_evts = new cl_event[launches.size()];
 	cl_int err;
 
 	// Upload
@@ -284,6 +286,8 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 		input_buffer[i] = input[i];
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_samples, input_buffer, 0, NULL, &upload_unmap_evt));
+
+	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, &start_evt));
 
 	// Lanci del kernel
 	cl_uint Nhalf = samplesPerRun / 2;
@@ -351,7 +355,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_tmp1, output_buffer, 0, NULL, NULL));
 
-	printStatsAndReleaseEvents(upload_unmap_evt, kernel_evts, download_map_evt);
+	printStatsAndReleaseEvents(upload_unmap_evt, start_evt, kernel_evts, download_map_evt);
 
 	delete kernel_evts;
 
@@ -359,7 +363,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 }
 
 template <typename T>
-void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *kernel_evts, cl_event download_map_evt)
+void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt)
 {
 	const float upload_secs = clhEventWaitAndGetDuration(upload_unmap_evt);
 	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
@@ -402,8 +406,16 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *
 		}
 		kernel_secs += step_secs;
 	}
-	fprintf(stderr, " TOTAL %g ms, %g MiB/s, %g Ksamples/s\n",
+
+	// Calcola statistiche globali in base alla somma del tempo di esecuzione dei singoli step
+	fprintf(stderr, " total(SUM) %g ms, %g MiB/s, %g Ksamples/s\n",
 		kernel_secs * 1e3, kernel_mem / kernel_secs, 1e-3 * samplesPerRun / kernel_secs);
+
+	// Calcola statistiche globali in base al tempo intercorso tra il marker e l'ultimo kernel
+	kernel_secs = clhEventWaitAndGetDifference(start_evt, kernel_evts[launches.size() - 1]);
+	fprintf(stderr, " total(MARKER) %g ms, %g MiB/s, %g Ksamples/s\n",
+		kernel_secs * 1e3, kernel_mem / kernel_secs, 1e-3 * samplesPerRun / kernel_secs);
+
 	fprintf(stderr, " download %g ms, %g MiB/s\n",
 		download_secs * 1e3, download_memSizeMiB / download_secs);
 
@@ -411,6 +423,7 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event *
 		printf("%g\n", kernel_secs * 1e3);
 
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(upload_unmap_evt));
+	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(start_evt));
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(download_map_evt));
 
 	for (unsigned int i = 0; i < launches.size(); i++)
