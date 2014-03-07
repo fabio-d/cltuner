@@ -10,6 +10,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(LiveAudioInput *audioIn, DftAlgorithm *algori
 	audioIn->setParent(this);
 	algorithm->setParent(this);
 
+	m_sampleRate = audioIn->sampleRate();
+
 	connect(algorithm, SIGNAL(spectrumAnalyzed(QVector<float>)), this, SLOT(slotSpectrumAnalyzed(QVector<float>)));
 	connect(audioIn, SIGNAL(newChunkAvailable(QVector<qint16>)), this, SLOT(slotAudioChunkAvailable(QVector<qint16>)));
 }
@@ -48,7 +50,7 @@ void SpectrumAnalyzer::slotSpectrumAnalyzed(const QVector<float> &data)
 	{
 		if (isPeak(&data[i], threshold) && !isPeak(&data[i/2], threshold))
 		{
-			const float freq = 48000.0 * i / data.size();
+			const float freq = float(m_sampleRate) * i / data.size();
 			const int nTasto = qRound(12 * log2(freq / 440) + 48);
 
 			if (nTasto >= 0 && nTasto < 88)
@@ -56,6 +58,6 @@ void SpectrumAnalyzer::slotSpectrumAnalyzed(const QVector<float> &data)
 		}
 	}
 
-	emit spectrumAvailable(data, threshold);
+	emit spectrumAvailable(data, threshold, m_sampleRate);
 	emit pressedKeysAvailable(pressedKeys);
 }

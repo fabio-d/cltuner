@@ -19,11 +19,12 @@ SpectrumWidget::SpectrumWidget(QWidget *parent)
 	verticalScrollBar()->setSingleStep(20);
 }
 
-void SpectrumWidget::setData(QVector<float> newData, float threshold)
+void SpectrumWidget::setData(QVector<float> newData, float threshold, int sampleRate)
 {
 	m_data = newData;
 	m_maximum = *std::max_element(m_data.begin(), m_data.end());
 	m_threshold = threshold;
+	m_sampleRate = sampleRate;
 
 	zoomMultiply(1); // imposta scrollbar e ridisegna tutto
 }
@@ -77,7 +78,7 @@ void SpectrumWidget::paintEvent(QPaintEvent *pe)
 
 		if (freq_idx != 0 && freq_idx < m_data.size() / 2)
 		{
-			const float freq = 48000.0 * freq_idx / m_data.size();
+			const float freq = float(m_sampleRate) * freq_idx / m_data.size();
 			hlKey = qRound(12 * log2(freq / 440) + 49);
 
 			QString freqText = QString("%1 Hz").arg(freq);

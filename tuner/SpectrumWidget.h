@@ -12,7 +12,7 @@ class SpectrumWidget : public QAbstractScrollArea
 		explicit SpectrumWidget(QWidget *parent = 0);
 
 	public slots:
-		void setData(QVector<float> newData, float threshold);
+		void setData(QVector<float> newData, float threshold, int sampleRate);
 		void zoomIn();
 		void zoomOut();
 
@@ -29,6 +29,7 @@ class SpectrumWidget : public QAbstractScrollArea
 		float m_zoomLevel;
 
 		float m_maximum, m_threshold;
+		int m_sampleRate;
 		QVector<float> m_data;
 };
 

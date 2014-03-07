@@ -19,7 +19,7 @@ class SpectrumAnalyzer : public QObject
 		SpectrumAnalyzer(LiveAudioInput *audioIn, DftAlgorithm *algorithm, int windowHistoryLength = 1, QObject *parent = 0);
 
 	signals:
-		void spectrumAvailable(const QVector<float> &data, float threshold);
+		void spectrumAvailable(const QVector<float> &data, float threshold, int sampleRate);
 		void pressedKeysAvailable(const QSet<int> &pressedKeys);
 
 	private slots:
@@ -32,6 +32,8 @@ class SpectrumAnalyzer : public QObject
 		// Window presum -- coda delle window più recenti
 		int m_windowHistoryLength;
 		QLinkedList< QVector<qint16> > m_sampleHistory;
+
+		int m_sampleRate;
 };
 
 #endif // TUNER_SPECTRUMANALYZER_H

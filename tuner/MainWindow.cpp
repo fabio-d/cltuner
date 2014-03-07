@@ -15,8 +15,8 @@ MainWindow::MainWindow(LiveAudioInput *audioIn, DftAlgorithm *algorithm, QWidget
 	connect(ui->actionZoomIn, SIGNAL(activated()), ui->spectrumWidget, SLOT(zoomIn()));
 	connect(ui->actionZoomOut, SIGNAL(activated()), ui->spectrumWidget, SLOT(zoomOut()));
 
-	connect(analyzer, SIGNAL(spectrumAvailable(QVector<float>, float)),
-		ui->spectrumWidget, SLOT(setData(QVector<float>, float)) );
+	connect(analyzer, SIGNAL(spectrumAvailable(QVector<float>, float, int)),
+		ui->spectrumWidget, SLOT(setData(QVector<float>, float, int)) );
 	connect(analyzer, SIGNAL(pressedKeysAvailable(QSet<int>)),
 		ui->tunesWidget, SLOT(setPressedKeys(QSet<int>)) );
 	connect(ui->spectrumWidget, SIGNAL(highlightedKeyAvailable(int)),
