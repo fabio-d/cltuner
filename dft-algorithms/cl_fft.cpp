@@ -63,7 +63,9 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 
 	k_fftstep_optisize[1] = clhCreateKernel(program, "fftstep_opti1");
 	k_fftstep_optisize[2] = clhCreateKernel(program, "fftstep_opti2");
-	k_fftstep_optisize[4] = clhCreateKernel(program, "fftstep_opti4");
+
+	// opti4 non conviene, ha prestazioni peggiori del normale cpx2cpx
+	// k_fftstep_optisize[4] = clhCreateKernel(program, "fftstep_opti4");
 
 	cl_image_format fmt;
 	fmt.image_channel_order = cl_channelOrder<cpx>();
