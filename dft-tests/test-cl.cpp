@@ -18,6 +18,8 @@
 #include <cctype>
 #include <iostream>
 
+#include <unistd.h>
+
 template <typename T, typename I>
 static int runTest(I *cl_algorithm_instance, int N, bool print, bool check)
 {
@@ -142,11 +144,15 @@ int main(int argc, const char **argv)
 	if (use_complex_inputs)
 	{
 		ALGOCLASS<cpx> instance(cl_platform_index, cl_device_index, input_size);
+		cerr << "sleep(1)" << endl;
+		sleep(1);
 		runTest<cpx>(&instance, input_size, print, check);
 	}
 	else
 	{
 		ALGOCLASS<float> instance(cl_platform_index, cl_device_index, input_size);
+		cerr << "sleep(1)" << endl;
+		sleep(1);
 		runTest<float>(&instance, input_size, print, check);
 	}
 }
