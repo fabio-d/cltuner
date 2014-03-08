@@ -25,10 +25,11 @@ class cl_dft_symmatrix : public cl_base
 	public:
 		cl_dft_symmatrix(int platform_index, int device_index, int samplesPerRun);
 		vector<cpx> run(const vector<T> &input);
-		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event step1_evt, cl_event step2_evt, cl_event download_map_evt);
 		~cl_dft_symmatrix();
 
 	private:
+		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event step1_evt, cl_event step2_evt, cl_event download_map_evt);
+
 		size_t coeffsMemSize, samplesMemSize, subtotMemSize, resultMemSize;
 		size_t step1_groupSize[2], step1_globalSize[2];
 		size_t step2_groupSize, step2_globalSize;

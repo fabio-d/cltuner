@@ -28,10 +28,11 @@ class cl_fft : public cl_base
 	public:
 		cl_fft(int platform_index, int device_index, int samplesPerRun);
 		vector<cpx> run(const vector<T> &input);
-		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt);
 		~cl_fft();
 
 	private:
+		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt);
+
 		size_t twiddleFactorsMemSize, samplesMemSize, tmpMemSize;
 
 		struct launch_step

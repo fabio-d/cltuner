@@ -74,10 +74,11 @@ class clFFT : public cl_base
 	public:
 		clFFT(int platform_index, int device_index, int samplesPerRun);
 		vector<cpx> run(const vector<T> &input);
-		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event clfft_start_evt, cl_event clfft_end_evt, cl_event download_map_evt);
 		~clFFT();
 
 	private:
+		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event clfft_start_evt, cl_event clfft_end_evt, cl_event download_map_evt);
+
 		size_t samplesMemSize, resultMemSize;
 
 		clfftPlanHandle clfft_plan;
