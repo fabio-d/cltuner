@@ -264,7 +264,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 
 	printStatsAndReleaseEvents(upload_unmap_evt, start_evt, kernel_evts, download_map_evt);
 
-	delete kernel_evts;
+	delete[] kernel_evts;
 
 	return result;
 }
@@ -363,7 +363,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 
 	printStatsAndReleaseEvents(upload_unmap_evt, start_evt, kernel_evts, download_map_evt);
 
-	delete kernel_evts;
+	delete[] kernel_evts;
 
 	return result;
 }
