@@ -8,7 +8,7 @@ void circsum(__global float *dest, __global float *src, int offset, int length, 
 	while (presumWindows-- != 0)
 	{
 		offset = (offset + length - get_global_size(0)) % length;
-		sum += src[offset];
+		sum += src[offset] * (presumWindows + 1) * (presumWindows + 1);
 	}
 
 	dest[get_global_id(0)] = sum;

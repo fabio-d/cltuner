@@ -86,7 +86,7 @@ void SpectrumWidget::paintEvent(QPaintEvent *pe)
 			const float freq = float(m_sampleRate) * freq_idx / m_data.size();
 			hlKey = qRound(12 * log2(freq / 440) + 49);
 
-			QString freqText = QString("%1 Hz").arg(freq);
+			QString freqText = QString("%1 Hz - %2").arg(freq).arg(hlKey);
 			p.resetTransform();
 			p.drawText(mousePos, freqText);
 		}

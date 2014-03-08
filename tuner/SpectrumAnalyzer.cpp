@@ -121,6 +121,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(LiveAudioInput *audioIn, cl_platform_id platf
 	m_sampleHistoryCircQueue = clCreateBuffer(m_context, CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, m_sampleHistoryLength * sizeof(cl_float), NULL, &err);
 	CL_CHECK_ERR("clCreateBuffer", err);
 
+	// TODO: memset zero del buffer
+
 	m_sampleRate = audioIn->sampleRate();
 
 	connect(audioIn, SIGNAL(newChunkAvailable(QVector<qint16>)), this, SLOT(slotAudioChunkAvailable(QVector<qint16>)));

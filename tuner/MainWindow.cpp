@@ -6,8 +6,10 @@
 #define NUM_RANGES (sizeof(ranges) / sizeof(ranges[0]))
 static SpectrumAnalyzerRange ranges[] =
 {
-	{ 0, 44, 4096, 2 },
-	{ 45, 87, 4096, 2 }
+	{ 0, 21, 32768, 1 },
+	{ 22, 48, 16384, 1 },
+	{ 49, 62, 16384, 2 },
+	{ 63, 87, 8192, 4 }
 };
 
 MainWindow::MainWindow(LiveAudioInput *audioIn, cl_platform_id platform, cl_device_id device, QWidget *parent)
@@ -40,7 +42,7 @@ MainWindow::MainWindow(LiveAudioInput *audioIn, cl_platform_id platform, cl_devi
 	connect(m_analyzer, SIGNAL(spectrumAvailable(int, QVector<float>, float)),
 		this, SLOT(slotSpectrumAvailable(int, QVector<float>, float)) );
 
-	resize(800, 600);
+	resize(800, 400);
 }
 
 void MainWindow::slotSpectrumAvailable(int rangeNum, const QVector<float> &data, float threshold)

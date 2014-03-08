@@ -104,7 +104,7 @@ void SetupDialog::slotAccepted()
 	LiveAudioInput *audioIn = new LiveAudioInput(
 		m_availableAudioInputDevices[m_audioDevice->currentIndex()],
 		sample_rate,
-		1024);
+		2048);
 
 	cl_platform_id plat = clhSelectPlatform(m_computePlatform->currentIndex());
 	cl_device_id dev = clhSelectDevice(plat, m_computeDevice->currentIndex());
