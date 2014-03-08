@@ -34,6 +34,8 @@ static int runTest(cl_context context, cl_command_queue command_queue, I *cl_alg
 	cl_event kernel_evt;
 	v_output = cl_algorithm_instance->run(v_input, &kernel_evt);
 
+	CL_CHECK_ERR("clReleaseMemObject", clReleaseMemObject(v_input));
+
 	cl_float2 *output_buffer = (cl_float2*)clEnqueueMapBuffer(command_queue,
 		v_output,
 		CL_TRUE,

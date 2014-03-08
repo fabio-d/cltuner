@@ -100,12 +100,6 @@ add_executable(tuner
 	tuner/SpectrumAnalyzer.cpp
 	tuner/SpectrumWidget.cpp
 	tuner/TunesWidget.cpp
-
 	${tuner_UI_SRCS}
-
-	dft-interface/CLAlgorithm.cpp
-	dft-interface/DftAlgorithm.cpp
-	dft-interface/DftAlgorithmManager.cpp
-	dft-interface/SerialAlgorithm.cpp
 )
 target_link_libraries(tuner ${CL_LIBRARIES} ${QT_LIBRARIES})

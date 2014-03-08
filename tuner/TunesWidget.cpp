@@ -7,7 +7,7 @@
 #define TW 1820	// Larghezza totale
 
 TunesWidget::TunesWidget(QWidget *parent)
-: QGraphicsView(parent)
+: QGraphicsView(parent), m_highlightedKey(-1)
 {
 	m_scene = new QGraphicsScene(this);
 	setScene(m_scene);

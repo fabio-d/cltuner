@@ -32,7 +32,7 @@
      </widget>
     </item>
     <item>
-     <widget class="SpectrumWidget" name="spectrumWidget" native="true"/>
+     <widget class="QTabWidget" name="spectrumTabs"/>
     </item>
    </layout>
   </widget>
@@ -86,11 +86,6 @@
   </action>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>SpectrumWidget</class>
-   <extends>QWidget</extends>
-   <header>tuner/SpectrumWidget.h</header>
-  </customwidget>
   <customwidget>
    <class>TunesWidget</class>
    <extends>QGraphicsView</extends>

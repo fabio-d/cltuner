@@ -11,12 +11,17 @@
 #define ZOOM_INCREMENT	qreal(1.5)
 
 SpectrumWidget::SpectrumWidget(QWidget *parent)
-: QAbstractScrollArea(parent), m_zoomLevel(1.0)
+: QAbstractScrollArea(parent), m_zoomLevel(1.0), m_highlightedKey(-1)
 {
 	setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	horizontalScrollBar()->setSingleStep(20);
 	setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	verticalScrollBar()->setSingleStep(20);
+}
+
+int SpectrumWidget::highlightedKey() const
+{
+	return m_highlightedKey;
 }
 
 void SpectrumWidget::setData(QVector<float> newData, float threshold, int sampleRate)
@@ -87,7 +92,12 @@ void SpectrumWidget::paintEvent(QPaintEvent *pe)
 		}
 	}
 
-	emit highlightedKeyAvailable((hlKey >= 0 && hlKey < 88) ? hlKey : -1);
+	hlKey = (hlKey >= 0 && hlKey < 88) ? hlKey : -1;
+	if (hlKey != m_highlightedKey)
+	{
+		m_highlightedKey = hlKey;
+		emit highlightedKeyChanged();
+	}
 }
 
 void SpectrumWidget::resizeEvent(QResizeEvent *re)

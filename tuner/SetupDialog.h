@@ -26,11 +26,8 @@ class SetupDialog : public QDialog
 		QComboBox *m_computePlatform;
 		QComboBox *m_computeDevice;
 
-		QComboBox *m_dftAlgorithm;
-
 		QComboBox *m_audioDevice;
 		QComboBox *m_audioSampleRate;
-		QComboBox *m_window;
 
 		QList<QAudioDeviceInfo> m_availableAudioInputDevices;
 };
