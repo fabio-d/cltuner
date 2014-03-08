@@ -27,11 +27,24 @@ class cl_fft : public cl_base
 {
 	public:
 		cl_fft(int platform_index, int device_index, int samplesPerRun);
+		cl_fft(cl_platform_id platform, cl_device_id device, cl_context context,
+			cl_command_queue command_queue, int samplesPerRun);
+
+		// Esegue la FFT a partire da un buffer host. Restituisce un buffer host
 		vector<cpx> run(const vector<T> &input);
+
+		// Esegue la FFT a partire da un buffer device. Restituisce un buffer device
+		cl_mem run(const cl_mem input, cl_event *out_finishEvent);
+
 		~cl_fft();
 
 	private:
+		void init();
 		void printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt);
+
+		// Esegue la fft e restituisce il marker iniziale, gli eventi relativi
+		// a ciascuno step e il buffer device contenente il risultato
+		cl_mem runInternal(const cl_mem input, cl_event *out_startEvent, cl_event *out_kernelEvents);
 
 		size_t twiddleFactorsMemSize, samplesMemSize, tmpMemSize;
 
@@ -54,6 +67,20 @@ class cl_fft : public cl_base
 template <typename T>
 cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 : cl_base(platform_index, device_index, samplesPerRun)
+{
+	init();
+}
+
+template <typename T>
+cl_fft<T>::cl_fft(cl_platform_id platform, cl_device_id device, cl_context context,
+	cl_command_queue command_queue, int samplesPerRun)
+: cl_base(platform, device, context, command_queue, samplesPerRun)
+{
+	init();
+}
+
+template <typename T>
+void cl_fft<T>::init()
 {
 	program = clhBuildProgram(context, device, "dft-algorithms/cl_fft.cl");
 	k_fftstep_init = clhCreateKernel(program, "fftstep_init");
@@ -170,6 +197,114 @@ cl_fft<T>::cl_fft(int platform_index, int device_index, int samplesPerRun)
 }
 
 template <>
+cl_mem cl_fft<cpx>::runInternal(const cl_mem input, cl_event *out_startEvent, cl_event *out_kernelEvents)
+{
+	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, out_startEvent));
+
+	// Lanci del kernel
+	const cl_uint Nhalf = samplesPerRun / 2;
+	cl_event prev_evt = *out_startEvent;
+	for (unsigned int i = 0; i < launches.size(); i++)
+	{
+		if (launches[i].isOptibase == false)
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 0, sizeof(cl_mem), (i == 0) ? &input : &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 3, sizeof(cl_uint), &launches[i].Wshift));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 4, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_cpx2cpx,
+				2,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&out_kernelEvents[i]
+			));
+		}
+		else
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_optibase,
+				1,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&out_kernelEvents[i]
+			));
+		}
+
+		prev_evt = out_kernelEvents[i];
+		swap(v_tmp1, v_tmp2);
+	}
+
+	return v_tmp1;
+}
+
+template <>
+cl_mem cl_fft<float>::runInternal(const cl_mem input, cl_event *out_startEvent, cl_event *out_kernelEvents)
+{
+	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, out_startEvent));
+
+	// Lanci del kernel
+	const cl_uint Nhalf = samplesPerRun / 2;
+	cl_event prev_evt = *out_startEvent;
+	for (unsigned int i = 0; i < launches.size(); i++)
+	{
+		if (launches[i].isOptibase == false)
+		{
+			// Solo il primo step ha input reali
+			cl_kernel kernel = (i == 0) ? k_fftstep_real2cpx : k_fftstep_cpx2cpx;
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), (i == 0) ? &input : &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 3, sizeof(cl_uint), &launches[i].Wshift));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 4, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				kernel,
+				2,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&out_kernelEvents[i]
+			));
+		}
+		else
+		{
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
+			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &Nhalf));
+			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
+				k_fftstep_optibase,
+				1,
+				NULL,
+				launches[i].globalSize,
+				launches[i].groupSize,
+				1,
+				&prev_evt,
+				&out_kernelEvents[i]
+			));
+		}
+
+		prev_evt = out_kernelEvents[i];
+		swap(v_tmp1, v_tmp2);
+	}
+
+	return v_tmp1;
+}
+
+template <>
 vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 {
 	cl_event upload_unmap_evt, start_evt, download_map_evt, *kernel_evts = new cl_event[launches.size()];
@@ -196,63 +331,19 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_samples, input_buffer, 0, NULL, &upload_unmap_evt));
 
-	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, &start_evt));
-
-	// Lanci del kernel
-	const cl_uint Nhalf = samplesPerRun / 2;
-	cl_event prev_evt = upload_unmap_evt;
-	for (unsigned int i = 0; i < launches.size(); i++)
-	{
-		if (launches[i].isOptibase == false)
-		{
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 1, sizeof(cl_mem), &v_tmp2));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 2, sizeof(cl_mem), &v_twiddleFactors));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 3, sizeof(cl_uint), &launches[i].Wshift));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_cpx2cpx, 4, sizeof(cl_uint), &Nhalf));
-			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-				k_fftstep_cpx2cpx,
-				2,
-				NULL,
-				launches[i].globalSize,
-				launches[i].groupSize,
-				1,
-				&prev_evt,
-				&kernel_evts[i]
-			));
-		}
-		else
-		{
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &Nhalf));
-			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-				k_fftstep_optibase,
-				1,
-				NULL,
-				launches[i].globalSize,
-				launches[i].groupSize,
-				1,
-				&prev_evt,
-				&kernel_evts[i]
-			));
-		}
-
-		prev_evt = kernel_evts[i];
-		swap(v_tmp1, v_tmp2);
-	}
+	// Calcola la FFT
+	cl_mem v_out = runInternal(v_samples, &start_evt, kernel_evts);
 
 	// Download
 	vector<cpx> result(samplesPerRun);
 	cl_float2 *output_buffer = (cl_float2*)clEnqueueMapBuffer(command_queue,
-		v_tmp1,
+		v_out,
 		CL_TRUE,
 		CL_MAP_READ,
 		0,
 		tmpMemSize,
 		1,
-		&prev_evt,
+		&kernel_evts[launches.size() - 1],
 		&download_map_evt,
 		&err);
 	CL_CHECK_ERR("clEnqueueMapBuffer", err);
@@ -260,7 +351,7 @@ vector<cpx> cl_fft<cpx>::run(const vector<cpx> &input)
 	for (int i = 0; i < samplesPerRun; i++)
 		result[i] = cpx(output_buffer[i].x, output_buffer[i].y);
 
-	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_tmp1, output_buffer, 0, NULL, NULL));
+	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_out, output_buffer, 0, NULL, NULL));
 
 	printStatsAndReleaseEvents(upload_unmap_evt, start_evt, kernel_evts, download_map_evt);
 
@@ -293,54 +384,8 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 
 	CL_CHECK_ERR("clEnqueueUnmapMemObject", clEnqueueUnmapMemObject(command_queue, v_samples, input_buffer, 0, NULL, &upload_unmap_evt));
 
-	CL_CHECK_ERR("clEnqueueMarker", clEnqueueMarker(command_queue, &start_evt));
-
-	// Lanci del kernel
-	const cl_uint Nhalf = samplesPerRun / 2;
-	cl_event prev_evt = upload_unmap_evt;
-	for (unsigned int i = 0; i < launches.size(); i++)
-	{
-		if (launches[i].isOptibase == false)
-		{
-			// Solo il primo step ha input reali
-			cl_kernel kernel = (i == 0) ? k_fftstep_real2cpx : k_fftstep_cpx2cpx;
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 0, sizeof(cl_mem), (i == 0) ? &v_samples : &v_tmp1));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 1, sizeof(cl_mem), &v_tmp2));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 2, sizeof(cl_mem), &v_twiddleFactors));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 3, sizeof(cl_uint), &launches[i].Wshift));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(kernel, 4, sizeof(cl_uint), &Nhalf));
-			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-				kernel,
-				2,
-				NULL,
-				launches[i].globalSize,
-				launches[i].groupSize,
-				1,
-				&prev_evt,
-				&kernel_evts[i]
-			));
-		}
-		else
-		{
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 0, sizeof(cl_mem), &v_tmp1));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 1, sizeof(cl_mem), &v_tmp2));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 2, sizeof(cl_mem), &v_twiddleFactors));
-			CL_CHECK_ERR("clSetKernelArg", clSetKernelArg(k_fftstep_optibase, 3, sizeof(cl_uint), &Nhalf));
-			CL_CHECK_ERR("clEnqueueNDRangeKernel", clEnqueueNDRangeKernel(command_queue,
-				k_fftstep_optibase,
-				1,
-				NULL,
-				launches[i].globalSize,
-				launches[i].groupSize,
-				1,
-				&prev_evt,
-				&kernel_evts[i]
-			));
-		}
-
-		prev_evt = kernel_evts[i];
-		swap(v_tmp1, v_tmp2);
-	}
+	// Calcola la FFT
+	cl_mem v_out = runInternal(v_samples, &start_evt, kernel_evts);
 
 	// Download
 	vector<cpx> result(samplesPerRun);
@@ -351,7 +396,7 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 		0,
 		tmpMemSize,
 		1,
-		&prev_evt,
+		&kernel_evts[launches.size() - 1],
 		&download_map_evt,
 		&err);
 	CL_CHECK_ERR("clEnqueueMapBuffer", err);
@@ -368,6 +413,32 @@ vector<cpx> cl_fft<float>::run(const vector<float> &input)
 	return result;
 }
 
+template <typename T>
+cl_mem cl_fft<T>::run(const cl_mem input, cl_event *out_finishEvent)
+{
+	cl_event start_evt, *kernel_evts = new cl_event[launches.size()];
+
+	cl_mem v_out = runInternal(input, &start_evt, kernel_evts);
+
+	if (out_finishEvent)
+	{
+		*out_finishEvent = kernel_evts[launches.size() - 1];
+		CL_CHECK_ERR("clRetainEvent", clRetainEvent(*out_finishEvent));
+	}
+
+#if 0
+	printStatsAndReleaseEvents(0, start_evt, kernel_evts, 0);
+#else
+	CL_CHECK_ERR("clReleaseEvent", clRetainEvent(start_evt));
+	for (unsigned int i = 0; i < launches.size(); i++)
+		CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(kernel_evts[i]));
+#endif
+
+	delete[] kernel_evts;
+
+	return v_out;
+}
+
 template <typename T> const char *cl_fft_kernelName();
 template <> const char *cl_fft_kernelName<float>() { return "real2cpx"; }
 template <> const char *cl_fft_kernelName<cpx>() { return "cpx2cpx"; }
@@ -375,20 +446,22 @@ template <> const char *cl_fft_kernelName<cpx>() { return "cpx2cpx"; }
 template <typename T>
 void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event start_evt, cl_event *kernel_evts, cl_event download_map_evt)
 {
-	const float upload_secs = clhEventWaitAndGetDuration(upload_unmap_evt);
-	const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
-
 	const float step0_memSizeMiB = (samplesMemSize + tmpMemSize) / SIZECONV_MB;
 	const float stepN_memSizeMiB = (2*tmpMemSize) / SIZECONV_MB;
-
-	const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
-	const float download_memSizeMiB = tmpMemSize / SIZECONV_MB;
 
 	fprintf(stderr, "%s [N=%d]:\n",
 		cl_fft_algoName<T>(), samplesPerRun);
 
-	fprintf(stderr, " upload %g ms, %g MiB/s\n",
-		upload_secs * 1e3, upload_memSizeMiB / upload_secs);
+	if (upload_unmap_evt)
+	{
+		const float upload_secs = clhEventWaitAndGetDuration(upload_unmap_evt);
+		const float upload_memSizeMiB = samplesMemSize / SIZECONV_MB;
+
+		fprintf(stderr, " upload %g ms, %g MiB/s\n",
+			upload_secs * 1e3, upload_memSizeMiB / upload_secs);
+
+		CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(upload_unmap_evt));
+	}
 
 	float kernel_secs = 0;
 	float kernel_mem = 0;
@@ -420,15 +493,21 @@ void cl_fft<T>::printStatsAndReleaseEvents(cl_event upload_unmap_evt, cl_event s
 	fprintf(stderr, " total(MARKER) %g ms, %g MiB/s, %g Ksamples/s\n",
 		kernel_secs * 1e3, kernel_mem / kernel_secs, 1e-3 * samplesPerRun / kernel_secs);
 
-	fprintf(stderr, " download %g ms, %g MiB/s\n",
-		download_secs * 1e3, download_memSizeMiB / download_secs);
+	if (download_map_evt)
+	{
+		const float download_secs = clhEventWaitAndGetDuration(download_map_evt);
+		const float download_memSizeMiB = tmpMemSize / SIZECONV_MB;
+
+		fprintf(stderr, " download %g ms, %g MiB/s\n",
+			download_secs * 1e3, download_memSizeMiB / download_secs);
+
+		CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(download_map_evt));
+	}
 
 	if (getenv("PRINT_KERNEL_EXECUTION_TIME"))
 		printf("%g\n", kernel_secs * 1e3);
 
-	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(upload_unmap_evt));
 	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(start_evt));
-	CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(download_map_evt));
 
 	for (unsigned int i = 0; i < launches.size(); i++)
 		CL_CHECK_ERR("clReleaseEvent", clReleaseEvent(kernel_evts[i]));

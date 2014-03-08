@@ -8,7 +8,7 @@ class cl_base
 {
 	protected:
 		cl_base(int platform_index, int device_index, int samplesPerRun)
-		: samplesPerRun(samplesPerRun)
+		: samplesPerRun(samplesPerRun), ownsContextAndQueue(true)
 		{
 			platform = clhSelectPlatform(platform_index);
 			cerr << "CL platform: " << clhGetPlatformFriendlyName(platform) << endl;
@@ -22,10 +22,20 @@ class cl_base
 			clhEmptyNvidiaCache();
 		}
 
+		cl_base(cl_platform_id platform, cl_device_id device, cl_context context,
+			cl_command_queue command_queue, int samplesPerRun)
+		: samplesPerRun(samplesPerRun), platform(platform), device(device),
+		  context(context), command_queue(command_queue), ownsContextAndQueue(false)
+		{
+		}
+
 		virtual ~cl_base()
 		{
-			CL_CHECK_ERR("clReleaseCommandQueue", clReleaseCommandQueue(command_queue));
-			CL_CHECK_ERR("clReleaseContext", clReleaseContext(context));
+			if (ownsContextAndQueue)
+			{
+				CL_CHECK_ERR("clReleaseCommandQueue", clReleaseCommandQueue(command_queue));
+				CL_CHECK_ERR("clReleaseContext", clReleaseContext(context));
+			}
 		}
 
 		int samplesPerRun;
@@ -34,6 +44,9 @@ class cl_base
 		cl_device_id device;
 		cl_context context;
 		cl_command_queue command_queue;
+
+	private:
+		bool ownsContextAndQueue;
 };
 
 #endif // DFTALGORITHMS_CLBASE_H
