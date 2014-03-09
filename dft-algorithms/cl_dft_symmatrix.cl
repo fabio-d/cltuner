@@ -63,7 +63,7 @@ void step1_cpx2cpx(__global cpx *samples, __global cpx *subtot, int N, __global 
 			samplesA_imag[id_x] = 0;
 		}
 	}
-	else if (id_y == 1)
+	else if (id_y == 2)
 	{
 		const int load_idx = group_x * GS + id_x;
 		if (load_idx < N)
@@ -187,7 +187,7 @@ void step1_real2cpx(__global float *samples, __global cpx *subtot, int N, __glob
 		else
 			samplesA_real[id_x] = 0;
 	}
-	else if (id_y == 1)
+	else if (id_y == 2)
 	{
 		const int load_idx = group_x * GS + id_x;
 		if (load_idx < N)
